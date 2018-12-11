@@ -51,18 +51,14 @@ impl<'a> Client<'a>{
 
 
 fn go() -> Result<(), Error> {
-
-    println!("Creating OAuth token");
     let mut oauth = SpotifyOAuth::default()
         .scope("user-read-playback-state user-modify-playback-state")
         .build();
 
-    let token_info = get_token(&mut oauth).unwrap();
-    println!("Creating OAuth token");
+    let token_info = get_token(&mut oauth).ok_or_else(||format_err!("Failed to get token"))?;
     let client_credential = SpotifyClientCredentials::default()
         .token_info(token_info)
         .build();
-    println!("Creating client");
     let spotify = Spotify::default()
         .client_credentials_manager(client_credential)
         .build();
