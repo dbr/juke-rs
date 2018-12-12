@@ -6,3 +6,4 @@ authors = ["dbr <dbr.onix@gmail.com>"]
 [dependencies]
 rspotify = "0.2.5"
 failure = "0.1"
+rouille = "1"
