@@ -1,23 +1,31 @@
 /*
-spotify:track:0b05H1iP6hdx8ue7XQlC5J
-spotify:track:67k9jnPe4dSqvAfrM902Z0
+Dodos spotify:track:0b05H1iP6hdx8ue7XQlC5J
+Thao  spotify:track:67k9jnPe4dSqvAfrM902Z0
 */
 
-extern crate rspotify;
-#[macro_use]
-extern crate failure;
 extern crate rand;
-use rand::seq::SliceRandom;
+extern crate rspotify;
+#[macro_use] extern crate failure;
+#[macro_use] extern crate rouille;
+
 use rand::Rng;
+use rand::seq::SliceRandom;
+use std::collections::hash_map::Entry;
+use std::thread;
+use std::thread::sleep;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
+
+use failure::Error;
+
+use rouille::{Request, Response};
+
 use rspotify::spotify::client::Spotify;
 use rspotify::spotify::model::offset::for_position;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
-use std::collections::hash_map::Entry;
-
 use rspotify::spotify::model::device::Device;
 
-use failure::Error;
 
 type ClientResult<T> = Result<T, Error>;
 
@@ -51,8 +59,6 @@ impl TheList {
         Some(hm.to_string())
     }
 }
-
-use std::time::{Duration, SystemTime};
 
 /// Playback/queue logic and commands Spotify
 pub struct Client<'a> {
@@ -201,13 +207,6 @@ pub fn test_the_list() {
     t.add("boop".into());
 }
 
-#[macro_use]
-extern crate rouille;
-use rouille::{Request, Response};
-use std::thread;
-use std::thread::sleep;
-
-use std::sync::{Arc, Mutex};
 
 type CommandQueue = Arc<Mutex<std::collections::VecDeque<SpotifyCommand>>>;
 
