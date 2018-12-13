@@ -232,27 +232,26 @@ impl<'a> Client<'a> {
     }
 }
 
-#[test]
-pub fn test_the_list() {
-    let mut t = TheList::new();
-    t.add("boop".into());
-}
-
 
 fn handle_response(request: &Request, queue: CommandQueue) -> Response {
     router!(request,
         (GET) (/) => {
+            // Index
+            // FIXME: Serve status stuff
             Response::html("Hi")
         },
         (GET) (/ctrl/resume) => {
+            // Play
             queue.lock().unwrap().push_back(SpotifyCommand::Resume);
             Response::text("ok")
         },
         (GET) (/ctrl/pause) => {
+            // Pause
             queue.lock().unwrap().push_back(SpotifyCommand::Pause);
             Response::text("ok")
         },
         (GET) (/ctrl/request) => {
+            // Add song to the list
             let id = request.get_param("track_id");
             if let Some(x) = id {
                 queue.lock().unwrap().push_back(SpotifyCommand::Request(SongRequestInfo{track_id: x.into()}));
@@ -267,12 +266,14 @@ fn handle_response(request: &Request, queue: CommandQueue) -> Response {
     )
 }
 
+/// Start web-server
 fn web(queue: CommandQueue) {
     rouille::start_server("0.0.0.0:8081", move |request| {
         handle_response(request, queue.clone())
     });
 }
 
+/// Spotify commander thread
 fn spotify_ctrl(queue: CommandQueue) -> Result<(), Error> {
     // Perform auth
     let mut oauth = SpotifyOAuth::default()
@@ -294,6 +295,7 @@ fn spotify_ctrl(queue: CommandQueue) -> Result<(), Error> {
     let devices = client.list_devices()?;
     client.set_active_device(devices[0].clone())?;
 
+    // Wait for commands from the web-thread
     loop {
         let queue_content = queue.lock().unwrap().pop_front();
         if let Some(c) = queue_content {
@@ -312,11 +314,13 @@ fn spotify_ctrl(queue: CommandQueue) -> Result<(), Error> {
     }
 }
 
+/// Song ID to send over command-queue
 #[derive(Debug)]
 struct SongRequestInfo {
     track_id: String,
 }
 
+/// Things web-server can ask Spotify thread to do
 #[derive(Debug)]
 enum SpotifyCommand {
     Resume,
@@ -324,6 +328,7 @@ enum SpotifyCommand {
     Request(SongRequestInfo),
 }
 
+/// Start all threads
 fn main() {
     let queue = Arc::new(Mutex::new(
         std::collections::VecDeque::<SpotifyCommand>::new(),
