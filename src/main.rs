@@ -27,8 +27,13 @@ use rspotify::spotify::util::get_token;
 use rspotify::spotify::model::device::Device;
 
 
+/// Shortcut for error return type
 type ClientResult<T> = Result<T, Error>;
 
+/// Commands being sent from web thread to Spotify controller thread
+type CommandQueue = Arc<Mutex<std::collections::VecDeque<SpotifyCommand>>>;
+
+/// Handles the requested song queue, with weighting etc
 struct TheList {
     songs: std::collections::HashMap<String, i64>,
 }
@@ -60,7 +65,32 @@ impl TheList {
     }
 }
 
-/// Playback/queue logic and commands Spotify
+/// State of the Spotify client
+#[derive(Debug, PartialEq)]
+enum PlaybackState {
+    /// Awaiting a song to play
+    NeedsSong,
+
+    /// Currently making noise
+    Playing,
+
+    /// Client has been paused mid-song
+    Paused,
+
+    /// Was in `NeedsSong` but we have put a song in the queue
+    EnqueuedAndWaiting,
+}
+
+/// What Spotify is currently playing
+#[derive(Debug)]
+pub struct PlaybackStatus {
+    /// If song is playing etc
+    state: PlaybackState,
+
+    // TODO: Current song/volume etc
+}
+
+/// Handles playback/queue logic and commands Spotify
 pub struct Client<'a> {
     spotify: &'a Spotify,
     device: Option<Device>,
@@ -70,20 +100,7 @@ pub struct Client<'a> {
 }
 
 
-#[derive(Debug, PartialEq)]
-enum PlaybackState {
-    NeedsSong,
-    Playing,
-    Paused,
-}
-
-/// What Spotify is currently playing
-#[derive(Debug)]
-pub struct PlaybackStatus {
-    state: PlaybackState, // Something is happening (i.e song is playing and playback location is > 0)
-}
-
-
+/// Turn Spotify API structure into internal `PlaybackStatus`
 fn parse_playing_context(ctx: std::option::Option<rspotify::spotify::model::context::SimplifiedPlayingContext>) -> Option<PlaybackStatus>{
     /*
     Currently playing Some(SimplifiedPlayingContext { context: None, timestamp: 1544709885233, progress_ms: Some(4048), is_playing: true, item: Some(FullTrack { album: SimplifiedAlbum { artists: [SimplifiedArtist { external_urls: {"spotify": "https://open.spotify.com/artist/10tysauSA5JATqniBDu2Ed"}, href: "https://api.spotify.com/v1/artists/10tysauSA5JATqniBDu2Ed", id: "10tysauSA5JATqniBDu2Ed", name: "The Dodos", _type: artist, uri: "spotify:artist:10tysauSA5JATqniBDu2Ed" }], album_type: "album", available_markets: ["AD", "AE", "AR", "AT", "AU", "BE", "BG", "BH", "BO", "BR", "CA", "CH", "CL", "CO", "CR", "CY", "CZ", "DE", "DK", "DO", "DZ", "EC", "EE", "EG", "ES", "FI", "FR", "GB", "GR", "GT", "HK", "HN", "HU", "ID", "IE", "IL", "IS", "IT", "JO", "JP", "KW", "LB", "LI", "LT", "LU", "LV", "MA", "MC", "MT", "MX", "MY", "NI", "NL", "NO", "NZ", "OM", "PA", "PE", "PH", "PL", "PS", "PT", "PY", "QA", "RO", "SA", "SE", "SG", "SK", "SV", "TH", "TN", "TR", "TW", "US", "UY", "VN", "ZA"], external_urls: {"spotify": "https://open.spotify.com/album/0PCBeIzHUlDM2cxq3Eu8tC"}, href: "https://api.spotify.com/v1/albums/0PCBeIzHUlDM2cxq3Eu8tC", id: "0PCBeIzHUlDM2cxq3Eu8tC", images: [Image { height: Some(639), url: "https://i.scdn.co/image/8b578f53808b53d4364fc00d967b299537439a49", width: Some(640) }, Image { height: Some(300), url: "https://i.scdn.co/image/e5bad1bbf8cb032511bad0fa6737465bcecf3fc0", width: Some(300) }, Image { height: Some(64), url: "https://i.scdn.co/image/665b9e082a4d3eb71ce723bc391343f16756a2da", width: Some(64) }], name: "Visiter", _type: album, uri: "spotify:album:0PCBeIzHUlDM2cxq3Eu8tC" }, artists: [SimplifiedArtist { external_urls: {"spotify": "https://open.spotify.com/artist/10tysauSA5JATqniBDu2Ed"}, href: "https://api.spotify.com/v1/artists/10tysauSA5JATqniBDu2Ed", id: "10tysauSA5JATqniBDu2Ed", name: "The Dodos", _type: artist, uri: "spotify:artist:10tysauSA5JATqniBDu2Ed" }], available_markets: ["AD", "AE", "AR", "AT", "AU", "BE", "BG", "BH", "BO", "BR", "CA", "CH", "CL", "CO", "CR", "CY", "CZ", "DE", "DK", "DO", "DZ", "EC", "EE", "EG", "ES", "FI", "FR", "GB", "GR", "GT", "HK", "HN", "HU", "ID", "IE", "IL", "IS", "IT", "JO", "JP", "KW", "LB", "LI", "LT", "LU", "LV", "MA", "MC", "MT", "MX", "MY", "NI", "NL", "NO", "NZ", "OM", "PA", "PE", "PH", "PL", "PS", "PT", "PY", "QA", "RO", "SA", "SE", "SG", "SK", "SV", "TH", "TN", "TR", "TW", "US", "UY", "VN", "ZA"], disc_number: 1, duration_ms: 129213, external_ids: {"isrc": "USJMZ0800024"}, external_urls: {"spotify": "https://open.spotify.com/track/0b05H1iP6hdx8ue7XQlC5J"}, href: "https://api.spotify.com/v1/tracks/0b05H1iP6hdx8ue7XQlC5J", id: "0b05H1iP6hdx8ue7XQlC5J", name: "Walking", popularity: 26, preview_url: Some("https://p.scdn.co/mp3-preview/71d7038ab385245e4ac51d5eedb34d7606eb4d1e?cid=3c06f6e33b9444779340b90bd8638d2f"), track_number: 1, _type: track, uri: "spotify:track:0b05H1iP6hdx8ue7XQlC5J" }) })
@@ -147,6 +164,7 @@ impl<'a> Client<'a> {
         Ok(())
     }
 
+    /// Update `status` field
     pub fn update_player_status(&mut self) -> ClientResult<()> {
         let x = self.spotify.current_playing(None)?;
         self.status = parse_playing_context(x);
@@ -159,6 +177,7 @@ impl<'a> Client<'a> {
         Ok(())
     }
 
+    /// Make a song start playing, replacing anything currently playing
     pub fn load_song(&mut self, track_id: String) -> ClientResult<()> {
         let id = self.device.clone().and_then(|x| Some(x.id));
         self.spotify
@@ -166,17 +185,22 @@ impl<'a> Client<'a> {
         Ok(())
     }
 
-    /// Shove a song on the queue
+    /// Take a song from the list and make it go
     pub fn enqueue(&mut self) -> ClientResult<()> {
         if let Some(t) = self.the_list.nextup() {
             println!("Make th go: {:?}", t);
             self.load_song(t)?;
+            if let Some(ref mut x) = self.status {
+                // TODO: Is this state necessary?
+                x.state = PlaybackState::EnqueuedAndWaiting;
+            }
         }
         Ok(())
     }
 
-    /// Called often, performs regular activities like checking if Spotify is ready to play next song
+    /// Called very often, performs regular activities like checking if Spotify is ready to play next song
     pub fn routine(&mut self) -> ClientResult<()> {
+        // Wait a reasonable amount of time before pinging Spotify API for playback status
         let time_for_thing = if let Some(lc) = self.last_status_check {
             let x = lc.elapsed()?;
             x.as_secs() > 0 || x.subsec_millis() > 1000
@@ -185,10 +209,17 @@ impl<'a> Client<'a> {
         };
 
         if time_for_thing {
+            // Sufficent time has elapsed
             self.last_status_check = Some(SystemTime::now());
+
+            // Update status
             self.update_player_status()?;
+
+            // FIXME: Quiet
             println!("Currently playing {:?}", self.status);
             println!("Songs in queue {:?}", self.the_list.songs);
+
+            // Check if client needs
             let mut need_song = false;
             if let Some(ref s) = self.status {
                 if s.state == PlaybackState::NeedsSong {
@@ -207,8 +238,6 @@ pub fn test_the_list() {
     t.add("boop".into());
 }
 
-
-type CommandQueue = Arc<Mutex<std::collections::VecDeque<SpotifyCommand>>>;
 
 fn handle_response(request: &Request, queue: CommandQueue) -> Response {
     router!(request,
