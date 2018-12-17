@@ -8,7 +8,6 @@ extern crate rspotify;
 #[macro_use] extern crate failure;
 #[macro_use] extern crate rouille;
 
-use rand::Rng;
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
 use std::thread;
@@ -21,7 +20,6 @@ use failure::Error;
 use rouille::{Request, Response};
 
 use rspotify::spotify::client::Spotify;
-use rspotify::spotify::model::offset::for_position;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
 use rspotify::spotify::model::device::Device;
@@ -31,7 +29,7 @@ use rspotify::spotify::model::device::Device;
 type ClientResult<T> = Result<T, Error>;
 
 /// Commands being sent from web thread to Spotify controller thread
-type CommandQueue = Arc<Mutex<std::collections::VecDeque<SpotifyCommand>>>;
+type LockedTaskQueue = Arc<Mutex<TaskQueue>>;
 
 /// Handles the requested song queue, with weighting etc
 struct TheList {
@@ -164,6 +162,19 @@ impl<'a> Client<'a> {
         Ok(())
     }
 
+    pub fn search(&self, params: SearchParams, queue: &mut TaskQueue) -> ClientResult<()> {
+        let search = self.spotify.search_track(&params.title, 10, 0, None)?;
+        let mut sr = vec![];
+        for s in search.tracks.items {
+            sr.push(SearchResultSong{name: s.name, spotify_uri: s.uri});
+        }
+        queue.respond(
+            CommandResponse{
+                id: params.tid,
+                value: CommandResponseDataType::Search(SearchResult{items: sr})});
+        Ok(())
+    }
+
     /// Update `status` field
     pub fn update_player_status(&mut self) -> ClientResult<()> {
         let x = self.spotify.current_playing(None)?;
@@ -188,7 +199,6 @@ impl<'a> Client<'a> {
     /// Take a song from the list and make it go
     pub fn enqueue(&mut self) -> ClientResult<()> {
         if let Some(t) = self.the_list.nextup() {
-            println!("Make th go: {:?}", t);
             self.load_song(t)?;
             if let Some(ref mut x) = self.status {
                 // TODO: Is this state necessary?
@@ -233,7 +243,7 @@ impl<'a> Client<'a> {
 }
 
 
-fn handle_response(request: &Request, queue: CommandQueue) -> Response {
+fn handle_response(request: &Request, queue: LockedTaskQueue) -> Response {
     router!(request,
         (GET) (/) => {
             // Index
@@ -242,23 +252,47 @@ fn handle_response(request: &Request, queue: CommandQueue) -> Response {
         },
         (GET) (/ctrl/resume) => {
             // Play
-            queue.lock().unwrap().push_back(SpotifyCommand::Resume);
+            queue.lock().unwrap().queue(SpotifyCommand::Resume);
             Response::text("ok")
         },
         (GET) (/ctrl/pause) => {
             // Pause
-            queue.lock().unwrap().push_back(SpotifyCommand::Pause);
+            queue.lock().unwrap().queue(SpotifyCommand::Pause);
             Response::text("ok")
         },
         (GET) (/ctrl/request) => {
             // Add song to the list
             let id = request.get_param("track_id");
             if let Some(x) = id {
-                queue.lock().unwrap().push_back(SpotifyCommand::Request(SongRequestInfo{track_id: x.into()}));
+                queue.lock().unwrap().queue(SpotifyCommand::Request(SongRequestInfo{track_id: x.into()}));
                 Response::text("ok")
             } else {
                 Response::text("missing track_id").with_status_code(500)
             }
+        },
+        (GET) (/search/track/{term:String}) => {
+            // Queue search task and drop lock
+            let tid = {
+                let mut q = queue.lock().unwrap();
+                let tid = q.get_task_id();
+                q.queue(SpotifyCommand::Search(SearchParams{tid: tid, title: term}));
+                tid
+            };
+
+            loop {
+                // TODO: Timeout?
+                {
+                    let response = queue.lock().unwrap()
+                        .wait(&tid);
+                    if let Some(r) = response {
+                        return Response::text(format!("kk: {:?}", r));
+                    }
+                    // Drop lock
+                }
+
+                sleep(Duration::from_millis(100));
+            };
+            unreachable!();
         },
 
         // default route
@@ -267,20 +301,24 @@ fn handle_response(request: &Request, queue: CommandQueue) -> Response {
 }
 
 /// Start web-server
-fn web(queue: CommandQueue) {
+fn web(queue: LockedTaskQueue) {
     rouille::start_server("0.0.0.0:8081", move |request| {
         handle_response(request, queue.clone())
     });
 }
 
 /// Spotify commander thread
-fn spotify_ctrl(queue: CommandQueue) -> Result<(), Error> {
+fn spotify_ctrl(queue: LockedTaskQueue) -> Result<(), Error> {
+    println!("Starting auth");
+
     // Perform auth
     let mut oauth = SpotifyOAuth::default()
         .scope("user-read-playback-state user-modify-playback-state")
         .build();
 
     let token_info = get_token(&mut oauth).ok_or_else(|| format_err!("Failed to get token"))?;
+
+    println!("Got token");
 
     // Create client
     let client_credential = SpotifyClientCredentials::default()
@@ -293,19 +331,21 @@ fn spotify_ctrl(queue: CommandQueue) -> Result<(), Error> {
     // Create client wrapper
     let mut client = Client::new(&spotify);
     let devices = client.list_devices()?;
+    // FIXME: Handle no devices!
     client.set_active_device(devices[0].clone())?;
 
     // Wait for commands from the web-thread
     loop {
-        let queue_content = queue.lock().unwrap().pop_front();
+        let mut q = queue.lock().unwrap();
+        let queue_content = q.pop();
         if let Some(c) = queue_content {
             println!("Got command: {:?}", c);
             let cmd_result = match c {
                 SpotifyCommand::Pause => client.pause()?,
                 SpotifyCommand::Resume => client.resume()?,
                 SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
+                SpotifyCommand::Search(sp) => client.search(sp, &mut q)?,
             };
-            println!("{:?}", cmd_result);
         } else {
             // Wait for new commands
             sleep(Duration::from_millis(50));
@@ -316,22 +356,101 @@ fn spotify_ctrl(queue: CommandQueue) -> Result<(), Error> {
 
 /// Song ID to send over command-queue
 #[derive(Debug)]
-struct SongRequestInfo {
+pub struct SongRequestInfo {
     track_id: String,
+}
+
+#[derive(Debug)]
+pub struct SearchParams {
+    title: String,
+    tid: TaskID,
+}
+
+#[derive(Debug)]
+pub struct SearchResultSong {
+    name: String,
+    spotify_uri: String,
+}
+
+#[derive(Debug)]
+pub struct SearchResult {
+    items: Vec<SearchResultSong>
 }
 
 /// Things web-server can ask Spotify thread to do
 #[derive(Debug)]
-enum SpotifyCommand {
+pub enum SpotifyCommand {
     Resume,
     Pause,
     Request(SongRequestInfo),
+    Search(SearchParams)
+}
+
+#[derive(Debug)]
+enum CommandResponseDataType {
+    Search(SearchResult)
+}
+
+#[derive(Debug)]
+pub struct CommandResponse {
+    id: TaskID,
+    value: CommandResponseDataType,
+}
+
+
+#[derive(Debug)]
+pub struct TaskQueue {
+    queue: std::collections::VecDeque<SpotifyCommand>,
+    responses: std::collections::VecDeque<CommandResponse>,
+    last_task_id: u64,
+}
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct TaskID {
+    id: u64,
+}
+
+impl TaskQueue {
+    pub fn new() -> TaskQueue {
+        TaskQueue{
+            queue: std::collections::VecDeque::<SpotifyCommand>::new(),
+            responses: std::collections::VecDeque::<CommandResponse>::new(),
+            last_task_id: 0,
+        }
+    }
+    pub fn get_task_id(&mut self) -> TaskID {
+        self.last_task_id += 1;
+        TaskID{id: self.last_task_id}
+    }
+    pub fn queue(&mut self, c: SpotifyCommand) -> TaskID {
+        self.queue.push_back(c);
+        TaskID{id: 42}
+    }
+    pub fn wait(&mut self, task_id: &TaskID) -> Option<CommandResponse>{
+        let mut idx: Option<usize> = None;
+        for (i, c) in self.responses.iter().enumerate() {
+            if c.id == *task_id {
+                idx = Some(i);
+                break;
+            }
+        }
+        if let Some(i) = idx {
+            let thing = self.responses.remove(i).unwrap();
+            return Some(thing);
+        }
+        None
+    }
+    pub fn respond(&mut self, value: CommandResponse) {
+        self.responses.push_back(value)
+    }
+    pub fn pop(&mut self) -> Option<SpotifyCommand> {
+        self.queue.pop_back()
+    }
 }
 
 /// Start all threads
 fn main() {
     let queue = Arc::new(Mutex::new(
-        std::collections::VecDeque::<SpotifyCommand>::new(),
+        TaskQueue::new(),
     ));
 
     let q1 = queue.clone();
@@ -343,21 +462,22 @@ fn main() {
     w.join().unwrap();
 }
 
-/*
+
 #[cfg(test)]
 mod tests {
     use super::main;
     use std::io::Read;
     use std::thread;
+    extern crate reqwest;
 
     #[test]
     fn test_basic() {
         let _t = thread::spawn(main);
-        let mut resp = reqwest::get("http://localhost:8081").unwrap();
+        let mut resp = reqwest::get("http://localhost:8081/search/track/The Dodos Walking").unwrap();
         assert!(resp.status().is_success());
         let mut content = String::new();
         resp.read_to_string(&mut content).unwrap();
-        assert_eq!(content, "hello world");
+        assert_eq!(content, "kk");
+        assert!(false);
     }
 }
-*/
