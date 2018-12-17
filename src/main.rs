@@ -3,10 +3,6 @@ Dodos spotify:track:0b05H1iP6hdx8ue7XQlC5J
 Thao  spotify:track:67k9jnPe4dSqvAfrM902Z0
 */
 
-extern crate rand;
-extern crate rspotify;
-#[macro_use] extern crate failure;
-#[macro_use] extern crate rouille;
 
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
@@ -15,9 +11,9 @@ use std::thread::sleep;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
-use failure::Error;
+use failure::{Error, format_err};
 
-use rouille::{Request, Response};
+use rouille::{Request, Response, router};
 
 use rspotify::spotify::client::Spotify;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
@@ -468,7 +464,6 @@ mod tests {
     use super::main;
     use std::io::Read;
     use std::thread;
-    extern crate reqwest;
 
     #[test]
     fn test_basic() {
