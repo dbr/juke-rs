@@ -1,27 +1,31 @@
-use crate::commands::LockedTaskQueue;
-use crate::common::{SearchParams, SongRequestInfo, SpotifyCommand, TaskID};
-use rouille::{router, Request, Response};
 use std::thread::sleep;
 use std::time::Duration;
+use std::sync::{Arc, RwLock};
 
-fn handle_response(request: &Request, queue: &LockedTaskQueue) -> Response {
+use rouille::{router, Request, Response};
+
+use crate::commands::LockedTaskQueue;
+use crate::common::{SearchParams, SongRequestInfo, SpotifyCommand, TaskID, PlaybackStatus};
+
+
+fn handle_response(request: &Request, queue: &LockedTaskQueue, global_status: &RwLock<Option<PlaybackStatus>>) -> Response {
     router!(request,
         (GET) (/) => {
             // Index
             // FIXME: Serve status stuff
             Response::html("Hi")
         },
-        (GET) (/ctrl/resume) => {
+        (GET) (/api/resume) => {
             // Play
             queue.lock().unwrap().queue(SpotifyCommand::Resume);
             Response::text("ok")
         },
-        (GET) (/ctrl/pause) => {
+        (GET) (/api/pause) => {
             // Pause
             queue.lock().unwrap().queue(SpotifyCommand::Pause);
             Response::text("ok")
         },
-        (GET) (/ctrl/request) => {
+        (GET) (/api/request) => {
             // Add song to the list
             let id = request.get_param("track_id");
             if let Some(x) = id {
@@ -30,6 +34,14 @@ fn handle_response(request: &Request, queue: &LockedTaskQueue) -> Response {
             } else {
                 Response::text("missing track_id").with_status_code(500)
             }
+        },
+        (GET) (/api/status) => {
+            let s = global_status.read().unwrap().clone();
+            let info = match s {
+                None => format!("Not playing"),
+                Some(t) => format!("{:?}", t.state),
+            };
+            Response::text(format!("{:?}", info))
         },
         (GET) (/search/track/{term:String}) => {
             // Queue search task and drop lock
@@ -62,8 +74,8 @@ fn handle_response(request: &Request, queue: &LockedTaskQueue) -> Response {
 }
 
 /// Start web-server
-pub fn web(queue: LockedTaskQueue) {
+pub fn web(queue: LockedTaskQueue, global_status: Arc<RwLock<Option<PlaybackStatus>>>) {
     rouille::start_server("0.0.0.0:8081", move |request| {
-        handle_response(request, &queue.clone())
+        handle_response(request, &queue.clone(), &global_status.clone())
     });
 }

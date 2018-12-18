@@ -8,6 +8,7 @@ use rspotify::spotify::util::get_token;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
+use std::sync::RwLock;
 use std::time::Duration;
 
 use failure::{format_err, Error};
@@ -25,7 +26,7 @@ use crate::common::*;
 use crate::web::web;
 
 /// Spotify commander thread
-fn spotify_ctrl(queue: &LockedTaskQueue) -> Result<(), Error> {
+fn spotify_ctrl(queue: &LockedTaskQueue, global_status: &RwLock<Option<PlaybackStatus>>) -> Result<(), Error> {
     println!("Starting auth");
 
     // Perform auth
@@ -68,18 +69,26 @@ fn spotify_ctrl(queue: &LockedTaskQueue) -> Result<(), Error> {
             sleep(Duration::from_millis(50));
             client.routine()?;
         }
+
+        let mut s = global_status.write().unwrap();
+        *s = client.status.clone();
     }
 }
 
+
 /// Start all threads
 fn main() {
+    let status: Arc<RwLock<Option<PlaybackStatus>>> = Arc::new(RwLock::new(None));
+
     let queue = Arc::new(Mutex::new(TaskQueue::new()));
 
     let q1 = queue.clone();
-    let w = thread::spawn(move || web(q1));
+    let s1 = status.clone();
+    let w = thread::spawn(move || web(q1, s1));
 
     let q2 = queue.clone();
-    let s = thread::spawn(move || spotify_ctrl(&q2));
+    let s2 = status.clone();
+    let s = thread::spawn(move || spotify_ctrl(&q2, &s2));
     s.join().unwrap().unwrap();
     w.join().unwrap();
 }

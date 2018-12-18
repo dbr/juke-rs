@@ -4,7 +4,7 @@ use failure::Error;
 pub type ClientResult<T> = Result<T, Error>;
 
 /// State of the Spotify client
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PlaybackState {
     /// Awaiting a song to play
     NeedsSong,
@@ -20,7 +20,7 @@ pub enum PlaybackState {
 }
 
 /// What Spotify is currently playing
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlaybackStatus {
     /// If song is playing etc
     pub state: PlaybackState,

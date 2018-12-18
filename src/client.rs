@@ -46,7 +46,7 @@ pub struct Client<'a> {
     device: Option<Device>,
     the_list: TheList,
     last_status_check: Option<SystemTime>,
-    status: Option<PlaybackStatus>,
+    pub status: Option<PlaybackStatus>,
 }
 
 /// Turn Spotify API structure into internal `PlaybackStatus`
