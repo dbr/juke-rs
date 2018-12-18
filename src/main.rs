@@ -3,23 +3,21 @@ Dodos spotify:track:0b05H1iP6hdx8ue7XQlC5J
 Thao  spotify:track:67k9jnPe4dSqvAfrM902Z0
 */
 
-
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
-use failure::{Error, format_err};
+use failure::{format_err, Error};
 
-use rouille::{Request, Response, router};
+use rouille::{router, Request, Response};
 
 use rspotify::spotify::client::Spotify;
+use rspotify::spotify::model::device::Device;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
-use rspotify::spotify::model::device::Device;
-
 
 /// Shortcut for error return type
 type ClientResult<T> = Result<T, Error>;
@@ -80,7 +78,6 @@ enum PlaybackState {
 pub struct PlaybackStatus {
     /// If song is playing etc
     state: PlaybackState,
-
     // TODO: Current song/volume etc
 }
 
@@ -93,9 +90,10 @@ pub struct Client<'a> {
     status: Option<PlaybackStatus>,
 }
 
-
 /// Turn Spotify API structure into internal `PlaybackStatus`
-fn parse_playing_context(ctx: std::option::Option<rspotify::spotify::model::context::SimplifiedPlayingContext>) -> Option<PlaybackStatus>{
+fn parse_playing_context(
+    ctx: Option<rspotify::spotify::model::context::SimplifiedPlayingContext>,
+) -> Option<PlaybackStatus> {
     /*
     Currently playing Some(SimplifiedPlayingContext { context: None, timestamp: 1544709885233, progress_ms: Some(4048), is_playing: true, item: Some(FullTrack { album: SimplifiedAlbum { artists: [SimplifiedArtist { external_urls: {"spotify": "https://open.spotify.com/artist/10tysauSA5JATqniBDu2Ed"}, href: "https://api.spotify.com/v1/artists/10tysauSA5JATqniBDu2Ed", id: "10tysauSA5JATqniBDu2Ed", name: "The Dodos", _type: artist, uri: "spotify:artist:10tysauSA5JATqniBDu2Ed" }], album_type: "album", available_markets: ["AD", "AE", "AR", "AT", "AU", "BE", "BG", "BH", "BO", "BR", "CA", "CH", "CL", "CO", "CR", "CY", "CZ", "DE", "DK", "DO", "DZ", "EC", "EE", "EG", "ES", "FI", "FR", "GB", "GR", "GT", "HK", "HN", "HU", "ID", "IE", "IL", "IS", "IT", "JO", "JP", "KW", "LB", "LI", "LT", "LU", "LV", "MA", "MC", "MT", "MX", "MY", "NI", "NL", "NO", "NZ", "OM", "PA", "PE", "PH", "PL", "PS", "PT", "PY", "QA", "RO", "SA", "SE", "SG", "SK", "SV", "TH", "TN", "TR", "TW", "US", "UY", "VN", "ZA"], external_urls: {"spotify": "https://open.spotify.com/album/0PCBeIzHUlDM2cxq3Eu8tC"}, href: "https://api.spotify.com/v1/albums/0PCBeIzHUlDM2cxq3Eu8tC", id: "0PCBeIzHUlDM2cxq3Eu8tC", images: [Image { height: Some(639), url: "https://i.scdn.co/image/8b578f53808b53d4364fc00d967b299537439a49", width: Some(640) }, Image { height: Some(300), url: "https://i.scdn.co/image/e5bad1bbf8cb032511bad0fa6737465bcecf3fc0", width: Some(300) }, Image { height: Some(64), url: "https://i.scdn.co/image/665b9e082a4d3eb71ce723bc391343f16756a2da", width: Some(64) }], name: "Visiter", _type: album, uri: "spotify:album:0PCBeIzHUlDM2cxq3Eu8tC" }, artists: [SimplifiedArtist { external_urls: {"spotify": "https://open.spotify.com/artist/10tysauSA5JATqniBDu2Ed"}, href: "https://api.spotify.com/v1/artists/10tysauSA5JATqniBDu2Ed", id: "10tysauSA5JATqniBDu2Ed", name: "The Dodos", _type: artist, uri: "spotify:artist:10tysauSA5JATqniBDu2Ed" }], available_markets: ["AD", "AE", "AR", "AT", "AU", "BE", "BG", "BH", "BO", "BR", "CA", "CH", "CL", "CO", "CR", "CY", "CZ", "DE", "DK", "DO", "DZ", "EC", "EE", "EG", "ES", "FI", "FR", "GB", "GR", "GT", "HK", "HN", "HU", "ID", "IE", "IL", "IS", "IT", "JO", "JP", "KW", "LB", "LI", "LT", "LU", "LV", "MA", "MC", "MT", "MX", "MY", "NI", "NL", "NO", "NZ", "OM", "PA", "PE", "PH", "PL", "PS", "PT", "PY", "QA", "RO", "SA", "SE", "SG", "SK", "SV", "TH", "TN", "TR", "TW", "US", "UY", "VN", "ZA"], disc_number: 1, duration_ms: 129213, external_ids: {"isrc": "USJMZ0800024"}, external_urls: {"spotify": "https://open.spotify.com/track/0b05H1iP6hdx8ue7XQlC5J"}, href: "https://api.spotify.com/v1/tracks/0b05H1iP6hdx8ue7XQlC5J", id: "0b05H1iP6hdx8ue7XQlC5J", name: "Walking", popularity: 26, preview_url: Some("https://p.scdn.co/mp3-preview/71d7038ab385245e4ac51d5eedb34d7606eb4d1e?cid=3c06f6e33b9444779340b90bd8638d2f"), track_number: 1, _type: track, uri: "spotify:track:0b05H1iP6hdx8ue7XQlC5J" }) })
     */
@@ -114,8 +112,9 @@ fn parse_playing_context(ctx: std::option::Option<rspotify::spotify::model::cont
             }
         };
 
-        Some(PlaybackStatus{state: current_state})
-
+        Some(PlaybackStatus {
+            state: current_state,
+        })
     } else {
         None
     }
@@ -162,12 +161,15 @@ impl<'a> Client<'a> {
         let search = self.spotify.search_track(&params.title, 10, 0, None)?;
         let mut sr = vec![];
         for s in search.tracks.items {
-            sr.push(SearchResultSong{name: s.name, spotify_uri: s.uri});
+            sr.push(SearchResultSong {
+                name: s.name,
+                spotify_uri: s.uri,
+            });
         }
-        queue.respond(
-            CommandResponse{
-                tid: params.tid,
-                value: CommandResponseDataType::Search(SearchResult{items: sr})});
+        queue.respond(CommandResponse {
+            tid: params.tid,
+            value: CommandResponseDataType::Search(SearchResult { items: sr }),
+        });
         Ok(())
     }
 
@@ -232,12 +234,13 @@ impl<'a> Client<'a> {
                     need_song = true;
                 }
             }
-            if need_song { self.enqueue()?; }
+            if need_song {
+                self.enqueue()?;
+            }
         }
         Ok(())
     }
 }
-
 
 fn handle_response(request: &Request, queue: &LockedTaskQueue) -> Response {
     router!(request,
@@ -370,7 +373,7 @@ pub struct SearchResultSong {
 
 #[derive(Debug)]
 pub struct SearchResult {
-    items: Vec<SearchResultSong>
+    items: Vec<SearchResultSong>,
 }
 
 /// Things web-server can ask Spotify thread to do
@@ -379,12 +382,12 @@ pub enum SpotifyCommand {
     Resume,
     Pause,
     Request(SongRequestInfo),
-    Search(SearchParams)
+    Search(SearchParams),
 }
 
 #[derive(Debug)]
 enum CommandResponseDataType {
-    Search(SearchResult)
+    Search(SearchResult),
 }
 
 #[derive(Debug)]
@@ -392,7 +395,6 @@ pub struct CommandResponse {
     tid: TaskID,
     value: CommandResponseDataType,
 }
-
 
 #[derive(Default, Debug)]
 pub struct TaskQueue {
@@ -405,19 +407,20 @@ pub struct TaskID {
     id: u64,
 }
 
-
 impl TaskQueue {
     pub fn new() -> TaskQueue {
         TaskQueue::default()
     }
     pub fn get_task_id(&mut self) -> TaskID {
         self.last_task_id += 1;
-        TaskID{id: self.last_task_id}
+        TaskID {
+            id: self.last_task_id,
+        }
     }
     pub fn queue(&mut self, c: SpotifyCommand) {
         self.queue.push_back(c);
     }
-    pub fn wait(&mut self, task_id: TaskID) -> Option<CommandResponse>{
+    pub fn wait(&mut self, task_id: TaskID) -> Option<CommandResponse> {
         let mut idx: Option<usize> = None;
         for (i, c) in self.responses.iter().enumerate() {
             if c.tid == task_id {
@@ -441,19 +444,16 @@ impl TaskQueue {
 
 /// Start all threads
 fn main() {
-    let queue = Arc::new(Mutex::new(
-        TaskQueue::new(),
-    ));
+    let queue = Arc::new(Mutex::new(TaskQueue::new()));
 
     let q1 = queue.clone();
-    let q2 = queue.clone();
     let w = thread::spawn(move || web(q1));
 
+    let q2 = queue.clone();
     let s = thread::spawn(move || spotify_ctrl(&q2));
     s.join().unwrap().unwrap();
     w.join().unwrap();
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -464,7 +464,8 @@ mod tests {
     #[test]
     fn test_basic() {
         let _t = thread::spawn(main);
-        let mut resp = reqwest::get("http://localhost:8081/search/track/The Dodos Walking").unwrap();
+        let mut resp =
+            reqwest::get("http://localhost:8081/search/track/The Dodos Walking").unwrap();
         assert!(resp.status().is_success());
         let mut content = String::new();
         resp.read_to_string(&mut content).unwrap();
