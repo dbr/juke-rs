@@ -91,7 +91,7 @@ fn handle_response(
                     let response = queue.lock().unwrap()
                         .wait(tid);
                     if let Some(r) = response {
-                        return Response::text(format!("kk: {:?}", r));
+                        return make_response(&r.value);
                     }
                     // Drop lock
                 }

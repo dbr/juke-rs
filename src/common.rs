@@ -40,13 +40,13 @@ pub struct SearchParams {
     pub tid: TaskID,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct SearchResultSong {
     pub name: String,
     pub spotify_uri: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct SearchResult {
     pub items: Vec<SearchResultSong>,
 }
@@ -60,7 +60,7 @@ pub enum SpotifyCommand {
     Search(SearchParams),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum CommandResponseDataType {
     Search(SearchResult),
 }
