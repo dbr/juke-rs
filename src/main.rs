@@ -5,10 +5,10 @@ Thao  spotify:track:67k9jnPe4dSqvAfrM902Z0
 
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
+use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
-use std::sync::RwLock;
 use std::time::Duration;
 
 use failure::{format_err, Error};
@@ -26,7 +26,10 @@ use crate::common::*;
 use crate::web::web;
 
 /// Spotify commander thread
-fn spotify_ctrl(queue: &LockedTaskQueue, global_status: &RwLock<Option<PlaybackStatus>>) -> Result<(), Error> {
+fn spotify_ctrl(
+    queue: &LockedTaskQueue,
+    global_status: &RwLock<Option<PlaybackStatus>>,
+) -> Result<(), Error> {
     println!("Starting auth");
 
     // Perform auth
@@ -74,7 +77,6 @@ fn spotify_ctrl(queue: &LockedTaskQueue, global_status: &RwLock<Option<PlaybackS
         *s = client.status.clone();
     }
 }
-
 
 /// Start all threads
 fn main() {

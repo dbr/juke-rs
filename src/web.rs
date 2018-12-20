@@ -1,14 +1,17 @@
+use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
-use std::sync::{Arc, RwLock};
 
 use rouille::{router, Request, Response};
 
 use crate::commands::LockedTaskQueue;
-use crate::common::{SearchParams, SongRequestInfo, SpotifyCommand, TaskID, PlaybackStatus};
+use crate::common::{PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand, TaskID};
 
-
-fn handle_response(request: &Request, queue: &LockedTaskQueue, global_status: &RwLock<Option<PlaybackStatus>>) -> Response {
+fn handle_response(
+    request: &Request,
+    queue: &LockedTaskQueue,
+    global_status: &RwLock<Option<PlaybackStatus>>,
+) -> Response {
     router!(request,
         (GET) (/) => {
             // Index
