@@ -73,6 +73,7 @@ fn parse_playing_context(
 
         Some(PlaybackStatus {
             state: current_state,
+            song_title: c.item.and_then(|t| Some(t.name)),
         })
     } else {
         None

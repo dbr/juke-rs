@@ -2,16 +2,46 @@ use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
 
+use serde_derive::{Deserialize, Serialize};
+use serde_json;
+
 use rouille::{router, Request, Response};
 
 use crate::commands::LockedTaskQueue;
 use crate::common::{PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand, TaskID};
+
+#[derive(Serialize, Deserialize)]
+enum WebResponse {
+    Success,
+    Status(PlaybackStatus),
+}
+
+#[derive(Serialize, Deserialize)]
+enum MaybeWebResponse {
+    Error(String),
+    Response(WebResponse),
+}
+
+fn make_response<T>(r: &T) -> Response
+where
+    T: serde::Serialize,
+{
+    match serde_json::to_string(&r) {
+        Ok(val) => Response::text(val),
+        Err(_) => Response::text("bad").with_status_code(500), // FIXME
+    }
+}
 
 fn handle_response(
     request: &Request,
     queue: &LockedTaskQueue,
     global_status: &RwLock<Option<PlaybackStatus>>,
 ) -> Response {
+    if let Some(request) = request.remove_prefix("/static") {
+        return rouille::match_assets(&request, "public");
+    }
+
+    // Main route
     router!(request,
         (GET) (/) => {
             // Index
@@ -41,10 +71,10 @@ fn handle_response(
         (GET) (/api/status) => {
             let s = global_status.read().unwrap().clone();
             let info = match s {
-                None => format!("Not playing"),
-                Some(t) => format!("{:?}", t.state),
+                None => Response::text("Nope"),
+                Some(t) => make_response(&WebResponse::Status(t)),
             };
-            Response::text(format!("{:?}", info))
+            info
         },
         (GET) (/search/track/{term:String}) => {
             // Queue search task and drop lock

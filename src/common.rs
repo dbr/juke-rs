@@ -1,10 +1,11 @@
 use failure::Error;
+use serde_derive::{Deserialize, Serialize};
 
 /// Shortcut for error return type
 pub type ClientResult<T> = Result<T, Error>;
 
 /// State of the Spotify client
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum PlaybackState {
     /// Awaiting a song to play
     NeedsSong,
@@ -20,14 +21,15 @@ pub enum PlaybackState {
 }
 
 /// What Spotify is currently playing
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlaybackStatus {
     /// If song is playing etc
     pub state: PlaybackState,
+    pub song_title: Option<String>,
     // TODO: Current song/volume etc
 }
 /// Song ID to send over command-queue
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SongRequestInfo {
     pub track_id: String,
 }

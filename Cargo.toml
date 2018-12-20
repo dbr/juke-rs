@@ -9,6 +9,9 @@ rspotify = "0.2.5"
 failure = "0.1"
 rouille = "1"
 rand = "0.6"
+serde = "*"
+serde_json = "*"
+serde_derive = "*"
 
 [dev-dependencies]
 reqwest = "0.9.5"
