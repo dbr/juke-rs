@@ -3,7 +3,7 @@ use rspotify::spotify::model::device::Device;
 
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 use crate::commands::TaskQueue;
 use crate::common::*;
@@ -118,7 +118,14 @@ impl<'a> Client<'a> {
     }
 
     pub fn search(&self, params: &SearchParams, queue: &mut TaskQueue) -> ClientResult<()> {
+        let start = Instant::now();
         let search = self.spotify.search_track(&params.title, 10, 0, None)?;
+        let dur = start.elapsed();
+        println!(
+            // FIXME: Use logging
+            "Search took {}",
+            dur.as_secs() * 1000 + dur.subsec_millis() as u64
+        );
         let mut sr = vec![];
         for s in search.tracks.items {
             sr.push(SearchResultSong {
