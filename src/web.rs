@@ -8,7 +8,9 @@ use serde_json;
 use rouille::{router, Request, Response};
 
 use crate::commands::LockedTaskQueue;
-use crate::common::{PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand, TaskID};
+use crate::common::{
+    CommandResponse, PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand, TaskID,
+};
 
 #[derive(Serialize, Deserialize)]
 enum WebResponse {
@@ -29,6 +31,21 @@ where
     match serde_json::to_string(&r) {
         Ok(val) => Response::text(val),
         Err(_) => Response::text("bad").with_status_code(500), // FIXME
+    }
+}
+
+fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
+    loop {
+        // TODO: Timeout?
+        {
+            let response = queue.lock().unwrap().wait(tid);
+            if let Some(r) = response {
+                return r;
+            }
+            // Drop lock
+        }
+
+        sleep(Duration::from_millis(100));
     }
 }
 
@@ -85,20 +102,8 @@ fn handle_response(
                 tid
             };
 
-            loop {
-                // TODO: Timeout?
-                {
-                    let response = queue.lock().unwrap()
-                        .wait(tid);
-                    if let Some(r) = response {
-                        return make_response(&r.value);
-                    }
-                    // Drop lock
-                }
-
-                sleep(Duration::from_millis(100));
-            };
-            unreachable!();
+            let r = wait_for_task(&queue, tid);
+            make_response(&r.value)
         },
 
         // default route
