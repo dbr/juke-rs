@@ -24,16 +24,6 @@ enum MaybeWebResponse {
     Response(WebResponse),
 }
 
-fn make_response<T>(r: &T) -> Response
-where
-    T: serde::Serialize,
-{
-    match serde_json::to_string(&r) {
-        Ok(val) => Response::text(val),
-        Err(_) => Response::text("bad").with_status_code(500), // FIXME
-    }
-}
-
 fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
     loop {
         // TODO: Timeout?
@@ -89,7 +79,7 @@ fn handle_response(
             let s = global_status.read().unwrap().clone();
             let info = match s {
                 None => Response::text("Nope"),
-                Some(t) => make_response(&WebResponse::Status(t)),
+                Some(t) => Response::json(&WebResponse::Status(t)),
             };
             info
         },
@@ -103,7 +93,7 @@ fn handle_response(
             };
 
             let r = wait_for_task(&queue, tid);
-            make_response(&r.value)
+            Response::json(&r.value)
         },
 
         // default route
