@@ -5,11 +5,12 @@ use std::time::Duration;
 use serde_derive::{Deserialize, Serialize};
 use serde_json;
 
-use rouille::{router, Request, Response};
+use rouille::{router, try_or_400, websocket, Request, Response};
 
 use crate::commands::LockedTaskQueue;
 use crate::common::{
-    CommandResponse, PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand, TaskID,
+    CommandResponse, PlaybackState, PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand,
+    TaskID,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -39,10 +40,40 @@ fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
     }
 }
 
+fn websocket_handling_thread(
+    mut websocket: websocket::Websocket,
+    global_status: &Arc<RwLock<Option<PlaybackStatus>>>,
+) {
+    // We wait for a new message to come from the websocket.
+    while let Some(message) = websocket.next() {
+        match message {
+            websocket::Message::Text(txt) => {
+                if txt == "status" {
+                    let s = global_status.read().unwrap().clone();
+                    let info = match s {
+                        None => WebResponse::Status(PlaybackStatus {
+                            state: PlaybackState::Unknown,
+                            song: None,
+                        }),
+                        Some(t) => WebResponse::Status(t),
+                    };
+                    let t = serde_json::to_string(&info).unwrap();
+                    websocket.send_text(&t).unwrap();
+                } else {
+                    websocket
+                        .send_text("{\"error\": \"Unknown command\"}")
+                        .unwrap();
+                }
+            }
+            websocket::Message::Binary(_) => (),
+        }
+    }
+}
+
 fn handle_response(
     request: &Request,
     queue: &LockedTaskQueue,
-    global_status: &RwLock<Option<PlaybackStatus>>,
+    global_status: &Arc<RwLock<Option<PlaybackStatus>>>,
 ) -> Response {
     if let Some(request) = request.remove_prefix("/static") {
         return rouille::match_assets(&request, "public");
@@ -54,6 +85,15 @@ fn handle_response(
             // Index
             // FIXME: Serve status stuff
             Response::html("Hi")
+        },
+        (GET) (/ws) => {
+            let (response, websocket) = try_or_400!(websocket::start(&request, Some("juke")));
+            let gs = global_status.clone();
+            std::thread::spawn(move || {
+                let ws = websocket.recv().unwrap();
+                websocket_handling_thread(ws, &gs);
+            });
+            response
         },
         (GET) (/api/resume) => {
             // Play
@@ -104,6 +144,6 @@ fn handle_response(
 /// Start web-server
 pub fn web(queue: LockedTaskQueue, global_status: Arc<RwLock<Option<PlaybackStatus>>>) {
     rouille::start_server("0.0.0.0:8081", move |request| {
-        handle_response(request, &queue.clone(), &global_status.clone())
+        handle_response(request, &queue.clone(), &global_status)
     });
 }

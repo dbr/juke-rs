@@ -1,35 +1,34 @@
 class PlaybackStatus extends React.Component {
     state = {info: undefined}
     componentDidMount() {
-        this.timer = setInterval(this.update.bind(this), 500);
+        const sock = new WebSocket('ws://localhost:8081/ws', 'juke');
+        sock.addEventListener('open', function (event) {
+            sock.send('status');
+        });
+        sock.addEventListener('message', function (event) {
+            let d = event.data;
+            this.update(JSON.parse(d));
+        }.bind(this));
+
+        // Trigger routine update
+        this.timer = setInterval(function(){sock.send('status')}.bind(this), 1000);
     }
     componentWillUnmount() {
         clearInterval(this.timer);
     }
-    update() {
-        self = this;
-
-        var u = new URL("http://localhost:8081/api/status");
-        fetch(u).then(function (resp) {
-            if (!resp.ok) {
-                throw new Error('HTTP error, status = ' + response.status);
-            }
-            return resp.json()
-        }).then(function(j) {
-            self.setState({"info": j});
-        })
+    update(data) {
+        this.setState({"info": data});
     }
     render() {
-        if(this.state.info === undefined){
-            return <div>[unknown status!]</div>;
+        if (this.state.info === undefined) {
+            return <div>[loading...!]</div>;
         }
-        console.log("State", this.state);
         return (
             <span>
-            <p>
-                Playing: <b>{this.state.info.Status.song_title}</b> by <b>?</b>
-                <i> ({this.state.info.Status.state})</i>
-            </p>
+                <p>
+                    Playing: <b>{this.state.info.Status.song.title}</b> by <b>{this.state.info.Status.song.artist}</b>
+                    <i> ({this.state.info.Status.state})</i>
+                </p>
             </span>
         )
     }
