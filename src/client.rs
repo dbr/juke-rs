@@ -73,7 +73,7 @@ fn parse_playing_context(
 
         Some(PlaybackStatus {
             state: current_state,
-            song_title: c.item.and_then(|t| Some(t.name)),
+            song: c.item.and_then(|t| Some(BasicSongInfo::from(t))),
         })
     } else {
         None
@@ -130,6 +130,7 @@ impl<'a> Client<'a> {
         for s in search.tracks.items {
             sr.push(SearchResultSong {
                 name: s.name,
+                artists: s.artists.iter().map(|x| x.name.clone()).collect(),
                 spotify_uri: s.uri,
             });
         }

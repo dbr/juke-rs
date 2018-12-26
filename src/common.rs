@@ -20,12 +20,34 @@ pub enum PlaybackState {
     EnqueuedAndWaiting,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BasicSongInfo {
+    pub title: String,
+    pub artist: String, // FIXME: Keep as list
+}
+
+impl From<rspotify::spotify::model::track::FullTrack> for BasicSongInfo {
+    fn from(ft: rspotify::spotify::model::track::FullTrack) -> BasicSongInfo {
+        BasicSongInfo {
+            title: ft.name,
+            artist: format!(
+                "{}",
+                ft.artists
+                    .iter()
+                    .map(|t| t.name.clone())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+        }
+    }
+}
+
 /// What Spotify is currently playing
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlaybackStatus {
     /// If song is playing etc
     pub state: PlaybackState,
-    pub song_title: Option<String>,
+    pub song: Option<BasicSongInfo>,
     // TODO: Current song/volume etc
 }
 /// Song ID to send over command-queue
@@ -43,6 +65,7 @@ pub struct SearchParams {
 #[derive(Debug, Serialize)]
 pub struct SearchResultSong {
     pub name: String,
+    pub artists: Vec<String>,
     pub spotify_uri: String,
 }
 
