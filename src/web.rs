@@ -9,8 +9,7 @@ use rouille::{router, try_or_400, websocket, Request, Response};
 
 use crate::commands::LockedTaskQueue;
 use crate::common::{
-    CommandResponse, PlaybackState, PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand,
-    TaskID,
+    CommandResponse, PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand, TaskID,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -42,7 +41,7 @@ fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
 
 fn websocket_handling_thread(
     mut websocket: websocket::Websocket,
-    global_status: &Arc<RwLock<Option<PlaybackStatus>>>,
+    global_status: &Arc<RwLock<PlaybackStatus>>,
 ) {
     // We wait for a new message to come from the websocket.
     while let Some(message) = websocket.next() {
@@ -50,13 +49,9 @@ fn websocket_handling_thread(
             websocket::Message::Text(txt) => {
                 if txt == "status" {
                     let s = global_status.read().unwrap().clone();
-                    let info = match s {
-                        None => WebResponse::Status(PlaybackStatus {
-                            state: PlaybackState::Unknown,
-                            song: None,
-                        }),
-                        Some(t) => WebResponse::Status(t),
-                    };
+
+                    let info = WebResponse::Status(s);
+
                     let t = serde_json::to_string(&info).unwrap();
                     websocket.send_text(&t).unwrap();
                 } else {
@@ -73,9 +68,10 @@ fn websocket_handling_thread(
 fn handle_response(
     request: &Request,
     queue: &LockedTaskQueue,
-    global_status: &Arc<RwLock<Option<PlaybackStatus>>>,
+    global_status: &Arc<RwLock<PlaybackStatus>>,
 ) -> Response {
     if let Some(request) = request.remove_prefix("/static") {
+        // TODO: Maybe use std::include_str! instead to have binary self-contained?
         return rouille::match_assets(&request, "public");
     }
 
@@ -117,11 +113,7 @@ fn handle_response(
         },
         (GET) (/api/status) => {
             let s = global_status.read().unwrap().clone();
-            let info = match s {
-                None => Response::text("Nope"),
-                Some(t) => Response::json(&WebResponse::Status(t)),
-            };
-            info
+            Response::json(&WebResponse::Status(s))
         },
         (GET) (/search/track/{term:String}) => {
             // Queue search task and drop lock
@@ -142,7 +134,7 @@ fn handle_response(
 }
 
 /// Start web-server
-pub fn web(queue: LockedTaskQueue, global_status: Arc<RwLock<Option<PlaybackStatus>>>) {
+pub fn web(queue: LockedTaskQueue, global_status: Arc<RwLock<PlaybackStatus>>) {
     rouille::start_server("0.0.0.0:8081", move |request| {
         handle_response(request, &queue.clone(), &global_status)
     });

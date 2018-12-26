@@ -46,13 +46,13 @@ pub struct Client<'a> {
     device: Option<Device>,
     the_list: TheList,
     last_status_check: Option<SystemTime>,
-    pub status: Option<PlaybackStatus>,
+    pub status: PlaybackStatus,
 }
 
 /// Turn Spotify API structure into internal `PlaybackStatus`
 fn parse_playing_context(
     ctx: Option<rspotify::spotify::model::context::SimplifiedPlayingContext>,
-) -> Option<PlaybackStatus> {
+) -> PlaybackStatus {
     /*
     Currently playing Some(SimplifiedPlayingContext { context: None, timestamp: 1544709885233, progress_ms: Some(4048), is_playing: true, item: Some(FullTrack { album: SimplifiedAlbum { artists: [SimplifiedArtist { external_urls: {"spotify": "https://open.spotify.com/artist/10tysauSA5JATqniBDu2Ed"}, href: "https://api.spotify.com/v1/artists/10tysauSA5JATqniBDu2Ed", id: "10tysauSA5JATqniBDu2Ed", name: "The Dodos", _type: artist, uri: "spotify:artist:10tysauSA5JATqniBDu2Ed" }], album_type: "album", available_markets: ["AD", "AE", "AR", "AT", "AU", "BE", "BG", "BH", "BO", "BR", "CA", "CH", "CL", "CO", "CR", "CY", "CZ", "DE", "DK", "DO", "DZ", "EC", "EE", "EG", "ES", "FI", "FR", "GB", "GR", "GT", "HK", "HN", "HU", "ID", "IE", "IL", "IS", "IT", "JO", "JP", "KW", "LB", "LI", "LT", "LU", "LV", "MA", "MC", "MT", "MX", "MY", "NI", "NL", "NO", "NZ", "OM", "PA", "PE", "PH", "PL", "PS", "PT", "PY", "QA", "RO", "SA", "SE", "SG", "SK", "SV", "TH", "TN", "TR", "TW", "US", "UY", "VN", "ZA"], external_urls: {"spotify": "https://open.spotify.com/album/0PCBeIzHUlDM2cxq3Eu8tC"}, href: "https://api.spotify.com/v1/albums/0PCBeIzHUlDM2cxq3Eu8tC", id: "0PCBeIzHUlDM2cxq3Eu8tC", images: [Image { height: Some(639), url: "https://i.scdn.co/image/8b578f53808b53d4364fc00d967b299537439a49", width: Some(640) }, Image { height: Some(300), url: "https://i.scdn.co/image/e5bad1bbf8cb032511bad0fa6737465bcecf3fc0", width: Some(300) }, Image { height: Some(64), url: "https://i.scdn.co/image/665b9e082a4d3eb71ce723bc391343f16756a2da", width: Some(64) }], name: "Visiter", _type: album, uri: "spotify:album:0PCBeIzHUlDM2cxq3Eu8tC" }, artists: [SimplifiedArtist { external_urls: {"spotify": "https://open.spotify.com/artist/10tysauSA5JATqniBDu2Ed"}, href: "https://api.spotify.com/v1/artists/10tysauSA5JATqniBDu2Ed", id: "10tysauSA5JATqniBDu2Ed", name: "The Dodos", _type: artist, uri: "spotify:artist:10tysauSA5JATqniBDu2Ed" }], available_markets: ["AD", "AE", "AR", "AT", "AU", "BE", "BG", "BH", "BO", "BR", "CA", "CH", "CL", "CO", "CR", "CY", "CZ", "DE", "DK", "DO", "DZ", "EC", "EE", "EG", "ES", "FI", "FR", "GB", "GR", "GT", "HK", "HN", "HU", "ID", "IE", "IL", "IS", "IT", "JO", "JP", "KW", "LB", "LI", "LT", "LU", "LV", "MA", "MC", "MT", "MX", "MY", "NI", "NL", "NO", "NZ", "OM", "PA", "PE", "PH", "PL", "PS", "PT", "PY", "QA", "RO", "SA", "SE", "SG", "SK", "SV", "TH", "TN", "TR", "TW", "US", "UY", "VN", "ZA"], disc_number: 1, duration_ms: 129213, external_ids: {"isrc": "USJMZ0800024"}, external_urls: {"spotify": "https://open.spotify.com/track/0b05H1iP6hdx8ue7XQlC5J"}, href: "https://api.spotify.com/v1/tracks/0b05H1iP6hdx8ue7XQlC5J", id: "0b05H1iP6hdx8ue7XQlC5J", name: "Walking", popularity: 26, preview_url: Some("https://p.scdn.co/mp3-preview/71d7038ab385245e4ac51d5eedb34d7606eb4d1e?cid=3c06f6e33b9444779340b90bd8638d2f"), track_number: 1, _type: track, uri: "spotify:track:0b05H1iP6hdx8ue7XQlC5J" }) })
     */
@@ -71,12 +71,12 @@ fn parse_playing_context(
             }
         };
 
-        Some(PlaybackStatus {
+        PlaybackStatus {
             state: current_state,
             song: c.item.and_then(|t| Some(BasicSongInfo::from(t))),
-        })
+        }
     } else {
-        None
+        PlaybackStatus::default()
     }
 }
 
@@ -87,7 +87,7 @@ impl<'a> Client<'a> {
             device: None,
             the_list: TheList::new(),
             last_status_check: None,
-            status: None,
+            status: PlaybackStatus::default(),
         }
     }
 
@@ -166,10 +166,7 @@ impl<'a> Client<'a> {
     pub fn enqueue(&mut self) -> ClientResult<()> {
         if let Some(t) = self.the_list.nextup() {
             self.load_song(t)?;
-            if let Some(ref mut x) = self.status {
-                // TODO: Is this state necessary?
-                x.state = PlaybackState::EnqueuedAndWaiting;
-            }
+            self.status.state = PlaybackState::EnqueuedAndWaiting; // TODO: Is this state necessary?
         }
         Ok(())
     }
@@ -197,10 +194,8 @@ impl<'a> Client<'a> {
 
             // Check if client needs
             let mut need_song = false;
-            if let Some(ref s) = self.status {
-                if s.state == PlaybackState::NeedsSong {
-                    need_song = true;
-                }
+            if self.status.state == PlaybackState::NeedsSong {
+                need_song = true;
             }
             if need_song {
                 self.enqueue()?;

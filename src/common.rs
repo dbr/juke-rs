@@ -7,6 +7,9 @@ pub type ClientResult<T> = Result<T, Error>;
 /// State of the Spotify client
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum PlaybackState {
+    /// No client etc?
+    Unknown,
+
     /// Awaiting a song to play
     NeedsSong,
 
@@ -49,6 +52,15 @@ pub struct PlaybackStatus {
     pub state: PlaybackState,
     pub song: Option<BasicSongInfo>,
     // TODO: Current song/volume etc
+}
+
+impl Default for PlaybackStatus {
+    fn default() -> Self {
+        PlaybackStatus {
+            state: PlaybackState::Unknown,
+            song: None,
+        }
+    }
 }
 /// Song ID to send over command-queue
 #[derive(Debug, Serialize, Deserialize)]

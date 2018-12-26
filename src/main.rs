@@ -28,7 +28,7 @@ use crate::web::web;
 /// Spotify commander thread
 fn spotify_ctrl(
     queue: &LockedTaskQueue,
-    global_status: &RwLock<Option<PlaybackStatus>>,
+    global_status: &Arc<RwLock<PlaybackStatus>>,
 ) -> Result<(), Error> {
     println!("Starting auth");
 
@@ -80,7 +80,7 @@ fn spotify_ctrl(
 
 /// Start all threads
 fn main() {
-    let status: Arc<RwLock<Option<PlaybackStatus>>> = Arc::new(RwLock::new(None));
+    let status: Arc<RwLock<PlaybackStatus>> = Arc::new(RwLock::new(PlaybackStatus::default()));
 
     let queue = Arc::new(Mutex::new(TaskQueue::new()));
 
