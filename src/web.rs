@@ -9,16 +9,18 @@ use rouille::{router, try_or_400, websocket, Request, Response};
 
 use crate::commands::LockedTaskQueue;
 use crate::common::{
-    CommandResponse, PlaybackStatus, SearchParams, SongRequestInfo, SpotifyCommand, TaskID,
+    CommandResponse, CommandResponseDataType, PlaybackStatus, SearchParams, SearchResult,
+    SongRequestInfo, SpotifyCommand, TaskID,
 };
 
-#[derive(Serialize, Deserialize)]
-enum WebResponse {
+#[derive(Debug, Serialize, Deserialize)]
+pub enum WebResponse {
     Success,
     Status(PlaybackStatus),
+    Search(SearchResult),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 enum MaybeWebResponse {
     Error(String),
     Response(WebResponse),
@@ -101,15 +103,10 @@ fn handle_response(
             queue.lock().unwrap().queue(SpotifyCommand::Pause);
             Response::text("ok")
         },
-        (GET) (/api/request) => {
+        (GET) (/api/request/{track_id:String}) => {
             // Add song to the list
-            let id = request.get_param("track_id");
-            if let Some(x) = id {
-                queue.lock().unwrap().queue(SpotifyCommand::Request(SongRequestInfo{track_id: x}));
-                Response::text("ok")
-            } else {
-                Response::text("missing track_id").with_status_code(500)
-            }
+            queue.lock().unwrap().queue(SpotifyCommand::Request(SongRequestInfo{track_id: track_id}));
+            Response::text("ok")
         },
         (GET) (/api/status) => {
             let s = global_status.read().unwrap().clone();
@@ -125,7 +122,10 @@ fn handle_response(
             };
 
             let r = wait_for_task(&queue, tid);
-            Response::json(&r.value)
+            let inner = match r.value {
+                CommandResponseDataType::Search(d) => WebResponse::Search(d)
+            };
+            Response::json(&inner)
         },
 
         // default route

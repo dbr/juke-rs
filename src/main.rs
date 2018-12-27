@@ -98,7 +98,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::main;
-    use std::io::Read;
     use std::thread;
 
     #[test]
@@ -107,9 +106,16 @@ mod tests {
         let mut resp =
             reqwest::get("http://localhost:8081/search/track/The Dodos Walking").unwrap();
         assert!(resp.status().is_success());
-        let mut content = String::new();
-        resp.read_to_string(&mut content).unwrap();
-        assert_eq!(content, "kk");
-        assert!(false);
+        let data: crate::web::WebResponse = resp.json().unwrap();
+        println!("{:?}", data);
+        if let crate::web::WebResponse::Search(s) = data {
+            // Check more than one result, and that all contain the word "dodos"
+            assert!(s.items.len() > 0);
+            assert!(s
+                .items
+                .iter()
+                .map(|x| format!("{} {}", x.name, x.artists.join(", ")))
+                .any(|x| x.to_lowercase().contains("dodo")));
+        }
     }
 }

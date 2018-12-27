@@ -74,14 +74,14 @@ pub struct SearchParams {
     pub tid: TaskID,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResultSong {
     pub name: String,
     pub artists: Vec<String>,
     pub spotify_uri: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResult {
     pub items: Vec<SearchResultSong>,
 }
