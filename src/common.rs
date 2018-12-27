@@ -33,14 +33,12 @@ impl From<rspotify::spotify::model::track::FullTrack> for BasicSongInfo {
     fn from(ft: rspotify::spotify::model::track::FullTrack) -> BasicSongInfo {
         BasicSongInfo {
             title: ft.name,
-            artist: format!(
-                "{}",
-                ft.artists
-                    .iter()
-                    .map(|t| t.name.clone())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ),
+            artist: ft
+                .artists
+                .iter()
+                .map(|t| t.name.clone())
+                .collect::<Vec<String>>()
+                .join(", "),
         }
     }
 }

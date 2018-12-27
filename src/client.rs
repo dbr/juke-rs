@@ -121,7 +121,7 @@ impl<'a> Client<'a> {
         println!(
             // FIXME: Use logging
             "Search took {}",
-            dur.as_secs() * 1000 + dur.subsec_millis() as u64
+            dur.as_secs() * 1000 + u64::from(dur.subsec_millis())
         );
         let mut sr = vec![];
         for s in search.tracks.items {
@@ -189,12 +189,8 @@ impl<'a> Client<'a> {
             println!("Currently playing {:?}", self.status);
             println!("Songs in queue {:?}", self.the_list.songs);
 
-            // Check if client needs
-            let mut need_song = false;
+            // Enqueue song if needed
             if self.status.state == PlaybackState::NeedsSong {
-                need_song = true;
-            }
-            if need_song {
                 self.enqueue()?;
             }
         }

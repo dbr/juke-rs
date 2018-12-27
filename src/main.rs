@@ -1,8 +1,3 @@
-/*
-Dodos spotify:track:0b05H1iP6hdx8ue7XQlC5J
-Thao  spotify:track:67k9jnPe4dSqvAfrM902Z0
-*/
-
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
 use std::sync::RwLock;
