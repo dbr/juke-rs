@@ -36,7 +36,10 @@ class ErrorBoundary extends React.Component {
   }
 
 class PlaybackStatus extends React.Component {
-    state = {info: undefined}
+    constructor(props) {
+        super(props);
+        this.state = {info: undefined};
+    }
     componentDidMount() {
         const sock = new WebSocket('ws://localhost:8081/ws', 'juke');
         sock.addEventListener('open', function (event) {
