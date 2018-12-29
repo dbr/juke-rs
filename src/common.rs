@@ -27,6 +27,9 @@ pub enum PlaybackState {
 pub struct BasicSongInfo {
     pub title: String,
     pub artist: String, // FIXME: Keep as list
+    /// Song duration in milliseconds
+    pub duration_ms: u32,
+    pub image_url: Option<String>,
 }
 
 impl From<rspotify::spotify::model::track::FullTrack> for BasicSongInfo {
@@ -39,6 +42,8 @@ impl From<rspotify::spotify::model::track::FullTrack> for BasicSongInfo {
                 .map(|t| t.name.clone())
                 .collect::<Vec<String>>()
                 .join(", "),
+            duration_ms: ft.duration_ms,
+            image_url: ft.album.images.first().and_then(|i| Some(i.url.clone())),
         }
     }
 }
@@ -49,7 +54,7 @@ pub struct PlaybackStatus {
     /// If song is playing etc
     pub state: PlaybackState,
     pub song: Option<BasicSongInfo>,
-    // TODO: Current song/volume etc
+    pub progress_ms: Option<u32>,
 }
 
 impl Default for PlaybackStatus {
@@ -57,6 +62,7 @@ impl Default for PlaybackStatus {
         PlaybackStatus {
             state: PlaybackState::Unknown,
             song: None,
+            progress_ms: None,
         }
     }
 }

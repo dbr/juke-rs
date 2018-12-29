@@ -68,9 +68,11 @@ fn parse_playing_context(
             }
         };
 
+        let song = c.item.and_then(|t| Some(BasicSongInfo::from(t)));
         PlaybackStatus {
             state: current_state,
-            song: c.item.and_then(|t| Some(BasicSongInfo::from(t))),
+            song: song,
+            progress_ms: c.progress_ms,
         }
     } else {
         PlaybackStatus::default()
