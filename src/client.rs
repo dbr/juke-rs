@@ -21,7 +21,8 @@ impl TheList {
     }
 
     fn add(&mut self, track_id: String) {
-        self.songs.insert(track_id, 1);
+        let existing: i64 = *self.songs.get(&track_id).unwrap_or(&0);
+        self.songs.insert(track_id, existing + 1);
     }
 
     fn nextup(&mut self) -> Option<String> {
