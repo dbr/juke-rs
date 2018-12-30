@@ -25,11 +25,14 @@ pub enum PlaybackState {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BasicSongInfo {
+    /// Song title
     pub title: String,
+    /// Artist name
     pub artist: String, // FIXME: Keep as list
     /// Song duration in milliseconds
     pub duration_ms: u32,
-    pub image_url: Option<String>,
+    /// Album artwork
+    pub album_image_url: Option<String>,
 }
 
 impl From<rspotify::spotify::model::track::FullTrack> for BasicSongInfo {
@@ -43,7 +46,7 @@ impl From<rspotify::spotify::model::track::FullTrack> for BasicSongInfo {
                 .collect::<Vec<String>>()
                 .join(", "),
             duration_ms: ft.duration_ms,
-            image_url: ft.album.images.first().and_then(|i| Some(i.url.clone())),
+            album_image_url: ft.album.images.first().and_then(|i| Some(i.url.clone())),
         }
     }
 }
