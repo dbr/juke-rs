@@ -25,6 +25,8 @@ pub enum PlaybackState {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BasicSongInfo {
+    /// Spotify ID
+    pub spotify_uri: String,
     /// Song title
     pub title: String,
     /// Artist name
@@ -38,6 +40,7 @@ pub struct BasicSongInfo {
 impl From<rspotify::spotify::model::track::FullTrack> for BasicSongInfo {
     fn from(ft: rspotify::spotify::model::track::FullTrack) -> BasicSongInfo {
         BasicSongInfo {
+            spotify_uri: ft.uri,
             title: ft.name,
             artist: ft
                 .artists
@@ -82,15 +85,8 @@ pub struct SearchParams {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SearchResultSong {
-    pub name: String,
-    pub artists: Vec<String>,
-    pub spotify_uri: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResult {
-    pub items: Vec<SearchResultSong>,
+    pub items: Vec<BasicSongInfo>,
 }
 
 /// Things web-server can ask Spotify thread to do

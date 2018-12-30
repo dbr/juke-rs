@@ -123,7 +123,7 @@ mod tests {
             assert!(s
                 .items
                 .iter()
-                .map(|x| format!("{} {}", x.name, x.artists.join(", ")))
+                .map(|x| format!("{} {}", x.title, x.artist))
                 .any(|x| x.to_lowercase().contains("dodo")));
         }
     }

@@ -133,11 +133,7 @@ impl<'a> Client<'a> {
         );
         let mut sr = vec![];
         for s in search.tracks.items {
-            sr.push(SearchResultSong {
-                name: s.name,
-                artists: s.artists.iter().map(|x| x.name.clone()).collect(),
-                spotify_uri: s.uri,
-            });
+            sr.push(s.into());
         }
         queue.respond(CommandResponse {
             tid: params.tid,
