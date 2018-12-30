@@ -54,60 +54,26 @@ function formatDuration(time) {
 }
 
 class PlaybackStatus extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { info: undefined };
-    }
-    componentDidMount() {
-        const sock_url = ((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/ws";
-        const sock = new WebSocket(sock_url, "juke");
-        sock.addEventListener('open', function (event) {
-            sock.send('status');
-        });
-        sock.addEventListener('message', function (event) {
-            let d = event.data;
-            this.update(JSON.parse(d));
-        }.bind(this));
-        sock.addEventListener('close', function (event) {
-            this.disconnected();
-        }.bind(this));
-        // Trigger routine update
-        this.timer = setInterval(function () { sock.send('status') }.bind(this), 1000);
-    }
-    componentWillUnmount() {
-        clearInterval(this.timer);
-    }
-    disconnected() {
-        this.setState({"info": undefined});
-        throw new Error("Lost connection to server");
-    }
-    update(data) {
-        console.log("Playback status got data", data);
-        this.setState({ "info": data });
-    }
-
     resume() {
         fetch("/api/resume");
     }
     pause() {
         fetch("/api/pause");
     }
-
     render() {
-        if (this.state.info === undefined) {
-            return <div className="card">[Connecting...!]</div>;
+        if (this.props.status === undefined) {
+            return <div className="card">[Waiting for data]</div>;
         }
-        console.log(this.state.info);
 
-        let paused = this.state.info.Status.state == "Paused";
-        let progress = 100 * (this.state.info.Status.progress_ms / this.state.info.Status.song.duration_ms);
+        let paused = this.props.status.state == "Paused";
+        let progress = 100 * (this.props.status.progress_ms / this.props.status.song.duration_ms);
 
-        let time_current = formatDuration(this.state.info.Status.progress_ms / 1000);
-        let time_duration = formatDuration(this.state.info.Status.song.duration_ms / 1000);
+        let time_current = formatDuration(this.props.status.progress_ms / 1000);
+        let time_duration = formatDuration(this.props.status.song.duration_ms / 1000);
 
         return (
             <div className="card">
-                <img src={this.state.info.Status.song.album_image_url} className="card-img-top" width="286px" alt="Album artwork" />
+                <img src={this.props.status.song.album_image_url} className="card-img-top" width="286px" alt="Album artwork" />
                 <div className="progress">
                     <div className={"progress-bar" + (paused ? " progress-bar-striped" : "")} role="progressbar" style={{ width: progress + "%" }} aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">
                         <small style={{ color: "black" }} className="justify-content-end d-flex position-absolute w-100">{time_duration}</small>
@@ -115,12 +81,12 @@ class PlaybackStatus extends React.Component {
                     </div>
                 </div>
                 <div className="card-body">
-                    <h5 className="card-title">{this.state.info.Status.song.title}</h5>
-                    <p className="card-text">{this.state.info.Status.song.artist}</p>
+                    <h5 className="card-title">{this.props.status.song.title}</h5>
+                    <p className="card-text">{this.props.status.song.artist}</p>
                     <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
                     <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
                     <button className="btn btn-danger">Vote to skip</button>
-                    <p><small> ({this.state.info.Status.state}) {time_current} / {time_duration}</small></p>
+                    <p><small> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
                 </div>
             </div>
         );
@@ -145,13 +111,30 @@ class UpcomingListItem extends React.Component {
 
 class UpcomingList extends React.Component {
     render() {
+        if (this.props.queue === undefined) {
+            return <span>Nothing yet..</span>;
+        }
+        if (Object.keys(this.props.queue.songs).length) {
+            var body = (
+                <div>
+                    <h2>Upcoming songs, in no particular order:</h2>
+                    <ul className="list-group">
+                        {Object.keys(this.props.queue.songs).map((s) => <UpcomingListItem key={s} song={s} />)}
+                    </ul>
+                </div>
+            );
+        } else {
+            var body = (
+                <div>
+                    <h2>No songs?!</h2>
+                    <button className="btn btn-outline-info" type="button" onClick={this.props.showSearch}>Add song</button>
+                </div>
+            )
+        }
         return (
             <div className="card">
                 <div className="card-body">
-                    <h2>Upcoming songs, in no particular order:</h2>
-                    <ul className="list-group">
-                        <UpcomingListItem song="1940" artist="The Submarines" />
-                    </ul>
+                    {body}
                 </div>
             </div>
         );
@@ -166,6 +149,21 @@ class SearchWidget extends React.Component {
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
     }
+    cancel() {
+        this.props.cancel();
+    }
+
+    escFunction(event) {
+        if (event.keyCode === 27) {
+            this.cancel();
+        }
+    }
+    componentDidMount() {
+        document.addEventListener("keydown", this.escFunction.bind(this), false);
+    }
+    componentWillUnmount() {
+        document.removeEventListener("keydown", this.escFunction.bind(this), false);
+    }
     clearResults() {
         this.setState({ data: [] });
     }
@@ -178,7 +176,7 @@ class SearchWidget extends React.Component {
         event.preventDefault();
         this.clearResults();
 
-        var u = new URL("http://localhost:8081/search/track/" + encodeURIComponent(this.state.value));
+        var u = "/search/track/" + encodeURIComponent(this.state.value);
         fetch(u).then(function (resp) {
             return resp.json(); // FIXME: Handle error
         }).then(function (d) {
@@ -188,9 +186,9 @@ class SearchWidget extends React.Component {
 
     play(event) {
         event.preventDefault();
-        let spotify_uri = event.target.value;
-        console.log('k', spotify_uri)
-        var u = new URL("http://localhost:8081/api/request/" + encodeURIComponent(spotify_uri));
+        console.log(event.currentTarget);
+        let spotify_uri = event.currentTarget.dataset.spotifyurl;
+        var u = "/api/request/" + encodeURIComponent(spotify_uri);
         fetch(u).then(function (resp) {
             return resp.json(); // FIXME: Handle error
         }).then(function (d) {
@@ -204,7 +202,7 @@ class SearchWidget extends React.Component {
             var sr = <ul>
                 {this.state.data.Search.items.map(
                     (x) => <li key={x.spotify_uri}>
-                        <a href="#" onClick={this.play} value={x.spotify_uri}>
+                        <a href="#" onClick={this.play.bind(this)} data-spotifyurl={x.spotify_uri}>
                             <b>{x.name}</b> by <b>{x.artists}</b> ({x.spotify_uri}
                         </a>
                     </li>)}
@@ -215,38 +213,115 @@ class SearchWidget extends React.Component {
 
         // Main form + results
         return (
-            <div>
-                <form onSubmit={this.handleSubmit}>
-                    <label>
-                        Name:
-            <input type="text" value={this.state.value} onChange={this.handleChange} />
-                    </label>
-                    <input type="submit" value="Submit" />
-                </form>
-                {sr}
+            <div className="card">
+                <div className="card-body">
+                    <form onSubmit={this.handleSubmit}>
+                        <label>
+                            Name: <input type="text" value={this.state.value} onChange={this.handleChange} />
+                        </label>
+                        <input type="submit" value="Submit" />
+                    </form>
+                    {sr}
+                    <button className="btn btn-outline-secondary" type="button" onClick={this.cancel.bind(this)}>Cancel</button>
+                </div>
             </div>
         );
     }
 }
 
+const CON_CONNECTED = 'connected';
+const CON_DISCONNECTED = 'disconnected';
+const CON_UNKNOWN = 'unknown';
+
+const STATUS_UPDATE_INTERVAL_MS = 1000;
+
 class MainView extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            connected: CON_UNKNOWN,
+            info: undefined,
+            socket: undefined,
+            status: undefined,
+            queue: undefined,
+            is_searching: false,
+        };
+    }
+    componentDidMount() {
+        // Create connection for live stuff
+        const sock_url = ((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/ws";
+        const sock = new WebSocket(sock_url, "juke");
+        this.setState({ socket: sock });
+
+        sock.addEventListener('open', function (event) {
+            // Set state, and request initial update
+            this.setState({ connected: CON_CONNECTED });
+            this.refresh();
+        }.bind(this));
+        sock.addEventListener('message', function (event) {
+            this.update(JSON.parse(event.data));
+        }.bind(this));
+        sock.addEventListener('close', function (event) {
+            this.disconnected();
+        }.bind(this));
+
+        // Routine update
+        this.timer = setInterval(this.refresh.bind(this), STATUS_UPDATE_INTERVAL_MS);
+    }
+    componentWillUnmount() {
+        clearInterval(this.timer);
+    }
+    refresh() {
+        this.state.socket.send('status');
+        this.state.socket.send('queue'); // FIXME: Do this less often
+    }
+    disconnected() {
+        this.setState({ connected: CON_DISCONNECTED });
+        this.setState({ "info": undefined });
+    }
+    update(data) {
+        if ("Status" in data) {
+            this.setState({ status: data.Status });
+        } else if ("Queue" in data) {
+            this.setState({ queue: data.Queue });
+        } else {
+            console.warn("Unhandled data from socket", data)
+        }
+    }
+    toggleSearch() {
+        this.setState({ is_searching: !this.state.is_searching });
+    }
+
     render() {
+        if (this.state.is_searching) {
+            var body = (
+                <div className="row">
+                    <div className="col">
+                        <SearchWidget cancel={this.toggleSearch.bind(this)} />
+                    </div>
+                </div>
+            );
+        } else {
+            var body = (
+                <div className="row">
+                    <div className="col-md-4">
+                        <PlaybackStatus status={this.state.status} />
+                    </div>
+                    <div className="col-md-8">
+                        <UpcomingList queue={this.state.queue} showSearch={this.toggleSearch.bind(this)} />
+                    </div>
+                </div>
+            );
+        }
         return (
             <ErrorBoundary>
                 <nav className="navbar navbar-dark bg-dark">
                     <a className="navbar-brand" href="#">Count Jukeula</a>
-                    <button className="btn btn-outline-info" type="button">Add song</button>
+                    <button className={"btn btn-outline-info" + (this.state.is_searching ? ' active' : '')} type="button" onClick={this.toggleSearch.bind(this)}>Add song</button>
                     <button className="btn btn-outline-secondary" type="button">Exit</button>
                 </nav>
                 <p></p>
-                <div className="row">
-                    <div className="col-md-4">
-                        <PlaybackStatus />
-                    </div>
-                    <div className="col-md-8">
-                        <UpcomingList />
-                    </div>
-                </div>
+                {body}
             </ErrorBoundary>
         );
     }
