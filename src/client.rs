@@ -51,6 +51,7 @@ pub struct Client<'a> {
     pub the_list: TheList,
     last_status_check: Option<SystemTime>,
     pub status: PlaybackStatus,
+    status_check_interval_ms: u32,
 }
 
 /// Turn Spotify API structure into internal `PlaybackStatus`
@@ -91,6 +92,7 @@ impl<'a> Client<'a> {
             the_list: TheList::new(),
             last_status_check: None,
             status: PlaybackStatus::default(),
+            status_check_interval_ms: 1000,
         }
     }
 
@@ -179,7 +181,7 @@ impl<'a> Client<'a> {
         // Wait a reasonable amount of time before pinging Spotify API for playback status
         let time_for_thing = if let Some(lc) = self.last_status_check {
             let x = lc.elapsed()?;
-            x.as_secs() > 0 || x.subsec_millis() > 1000
+            x.as_secs() > 0 || x.subsec_millis() > self.status_check_interval_ms
         } else {
             true
         };
