@@ -15,7 +15,7 @@ mod commands;
 mod common;
 mod web;
 
-use crate::client::Client;
+use crate::client::{Client, TheList};
 use crate::commands::{LockedTaskQueue, TaskQueue};
 use crate::common::*;
 use crate::web::web;
@@ -24,6 +24,7 @@ use crate::web::web;
 fn spotify_ctrl(
     queue: &LockedTaskQueue,
     global_status: &Arc<RwLock<PlaybackStatus>>,
+    global_queue: &Arc<RwLock<TheList>>,
 ) -> Result<(), Error> {
     println!("Starting auth");
 
@@ -68,8 +69,18 @@ fn spotify_ctrl(
             client.routine()?;
         }
 
-        let mut s = global_status.write().unwrap();
-        *s = client.status.clone();
+        // Update global status object if needed
+        if *global_status.read().unwrap() != client.status {
+            // TODO: Is this even necessary, could it just update always?
+            let mut s = global_status.write().unwrap();
+            *s = client.status.clone();
+        }
+
+        if *global_queue.read().unwrap() != client.the_list {
+            // TODO: Is this even necessary, could it just update always?
+            let mut q = global_queue.write().unwrap();
+            *q = client.the_list.clone();
+        }
     }
 }
 
@@ -77,15 +88,18 @@ fn spotify_ctrl(
 fn main() {
     let status: Arc<RwLock<PlaybackStatus>> = Arc::new(RwLock::new(PlaybackStatus::default()));
 
-    let queue = Arc::new(Mutex::new(TaskQueue::new()));
+    let tasks = Arc::new(Mutex::new(TaskQueue::new()));
+    let thelist = Arc::new(RwLock::new(TheList::new()));
 
-    let q1 = queue.clone();
+    let q1 = tasks.clone();
     let s1 = status.clone();
-    let w = thread::spawn(move || web(q1, s1));
+    let l1 = thelist.clone();
+    let w = thread::spawn(move || web(q1, s1, l1));
 
-    let q2 = queue.clone();
+    let q2 = tasks.clone();
     let s2 = status.clone();
-    let s = thread::spawn(move || spotify_ctrl(&q2, &s2));
+    let l2 = thelist.clone();
+    let s = thread::spawn(move || spotify_ctrl(&q2, &s2, &l2));
     s.join().unwrap().unwrap();
     w.join().unwrap();
 }

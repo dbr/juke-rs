@@ -1,20 +1,23 @@
-use rspotify::spotify::client::Spotify;
-use rspotify::spotify::model::device::Device;
-
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
 use std::time::{Instant, SystemTime};
+
+use serde_derive::{Deserialize, Serialize};
+
+use rspotify::spotify::client::Spotify;
+use rspotify::spotify::model::device::Device;
 
 use crate::commands::TaskQueue;
 use crate::common::*;
 
 /// Handles the requested song queue, with weighting etc
-struct TheList {
-    songs: std::collections::HashMap<String, i64>,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TheList {
+    pub songs: std::collections::HashMap<String, i64>,
 }
 
 impl TheList {
-    fn new() -> TheList {
+    pub fn new() -> TheList {
         TheList {
             songs: std::collections::HashMap::new(),
         }
@@ -45,7 +48,7 @@ impl TheList {
 pub struct Client<'a> {
     spotify: &'a Spotify,
     device: Option<Device>,
-    the_list: TheList,
+    pub the_list: TheList,
     last_status_check: Option<SystemTime>,
     pub status: PlaybackStatus,
 }
@@ -189,7 +192,6 @@ impl<'a> Client<'a> {
             self.update_player_status()?;
 
             // FIXME: Quiet
-            println!("Currently playing {:?}", self.status);
             println!("Songs in queue {:?}", self.the_list.songs);
 
             // Enqueue song if needed

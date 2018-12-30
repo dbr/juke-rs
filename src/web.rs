@@ -7,6 +7,7 @@ use serde_json;
 
 use rouille::{router, try_or_400, websocket, Request, Response};
 
+use crate::client::TheList;
 use crate::commands::LockedTaskQueue;
 use crate::common::{
     CommandResponse, CommandResponseDataType, PlaybackStatus, SearchParams, SearchResult,
@@ -18,6 +19,7 @@ pub enum WebResponse {
     Success,
     Status(PlaybackStatus),
     Search(SearchResult),
+    Queue(TheList),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,6 +46,7 @@ fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
 fn websocket_handling_thread(
     mut websocket: websocket::Websocket,
     global_status: &Arc<RwLock<PlaybackStatus>>,
+    global_queue: &Arc<RwLock<TheList>>,
 ) {
     // We wait for a new message to come from the websocket.
     while let Some(message) = websocket.next() {
@@ -54,6 +57,11 @@ fn websocket_handling_thread(
 
                     let info = WebResponse::Status(s);
 
+                    let t = serde_json::to_string(&info).unwrap();
+                    websocket.send_text(&t).unwrap();
+                } else if txt == "queue" {
+                    let q = global_queue.read().unwrap().clone();
+                    let info = WebResponse::Queue(q);
                     let t = serde_json::to_string(&info).unwrap();
                     websocket.send_text(&t).unwrap();
                 } else {
@@ -71,6 +79,7 @@ fn handle_response(
     request: &Request,
     queue: &LockedTaskQueue,
     global_status: &Arc<RwLock<PlaybackStatus>>,
+    global_queue: &Arc<RwLock<TheList>>,
 ) -> Response {
     if let Some(request) = request.remove_prefix("/static") {
         // TODO: Maybe use std::include_str! instead to have binary self-contained?
@@ -87,9 +96,10 @@ fn handle_response(
         (GET) (/ws) => {
             let (response, websocket) = try_or_400!(websocket::start(&request, Some("juke")));
             let gs = global_status.clone();
+            let gq = global_queue.clone();
             std::thread::spawn(move || {
                 let ws = websocket.recv().unwrap();
-                websocket_handling_thread(ws, &gs);
+                websocket_handling_thread(ws, &gs, &gq);
             });
             response
         },
@@ -134,8 +144,12 @@ fn handle_response(
 }
 
 /// Start web-server
-pub fn web(queue: LockedTaskQueue, global_status: Arc<RwLock<PlaybackStatus>>) {
+pub fn web(
+    queue: LockedTaskQueue,
+    global_status: Arc<RwLock<PlaybackStatus>>,
+    global_queue: Arc<RwLock<TheList>>,
+) {
     rouille::start_server("0.0.0.0:8081", move |request| {
-        handle_response(request, &queue.clone(), &global_status)
+        handle_response(request, &queue.clone(), &global_status, &global_queue)
     });
 }
