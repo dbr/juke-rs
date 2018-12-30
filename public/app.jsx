@@ -191,26 +191,27 @@ class SearchWidget extends React.Component {
         var u = "/api/request/" + encodeURIComponent(spotify_uri);
         fetch(u).then(function (resp) {
             return resp.json(); // FIXME: Handle error
-        }).then(function (d) {
+        }.bind(this)).then(function (d) {
             console.log(d);
-        })
+        }.bind(this));
     }
 
     render() {
         // Format search results if any
+        console.log(this.state.data.Search);
         if (this.state.data.Search && this.state.data.Search.items.length > 0) {
-            var sr = <ul>
+            var sr = <ul className="list-group">
                 {this.state.data.Search.items.map(
-                    (x) => <li key={x.spotify_uri}>
+                    (x) => <li className="list-group-item" key={x.spotify_uri}>
                         <a href="#" onClick={this.play.bind(this)} data-spotifyurl={x.spotify_uri}>
-                            <b>{x.name}</b> by <b>{x.artists}</b> ({x.spotify_uri}
+                            <img src={x.album_image_url} width={32} />
+                            <b>{x.title}</b> by <b>{x.artist}</b> ({formatDuration(x.duration_ms/1000)})
                         </a>
                     </li>)}
             </ul>
         } else {
             var sr = <div></div>;
         }
-
         // Main form + results
         return (
             <div className="card">
@@ -318,7 +319,7 @@ class MainView extends React.Component {
                 <nav className="navbar navbar-dark bg-dark">
                     <a className="navbar-brand" href="#">Count Jukeula</a>
                     <button className={"btn btn-outline-info" + (this.state.is_searching ? ' active' : '')} type="button" onClick={this.toggleSearch.bind(this)}>Add song</button>
-                    <button className="btn btn-outline-secondary" type="button">Exit</button>
+                    <span>=)</span>
                 </nav>
                 <p></p>
                 {body}
