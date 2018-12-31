@@ -2,3 +2,5 @@
 **/*.rs.bk
 /.env
 /.spotify_token_cache.json
+.DS_Store
+/vendor
