@@ -68,6 +68,23 @@ class PlaybackStatus extends React.Component {
             return <div className="card">[Waiting for data]</div>;
         }
 
+        if (this.props.status.state == 'NeedsSong') {
+            return (
+            <div className="card">
+                <img src="/static/thejuke.png" className="card-img-top" width="286px" alt="Album artwork" style={{background: "black"}} />
+                <div className="progress">
+                    <div className="progress-bar progress-bar-striped" role="progressbar" style={{ width: "100%" }} aria-valuenow={100} aria-valuemin="0" aria-valuemax="100">
+                    </div>
+                </div>
+                <div className="card-body">
+                    <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
+                    <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
+                    <button className="btn btn-danger" onClick={this.skip}>Skip</button>
+                </div>
+            </div>
+            );
+        }
+
         let paused = this.props.status.state == "Paused";
         let progress = 100 * (this.props.status.progress_ms / this.props.status.song.duration_ms);
 
@@ -84,11 +101,11 @@ class PlaybackStatus extends React.Component {
                     </div>
                 </div>
                 <div className="card-body">
-                    <h5 className="card-title">{this.props.status.song.title}</h5>
-                    <p className="card-text">{this.props.status.song.artist}</p>
                     <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
                     <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
                     <button className="btn btn-danger" onClick={this.skip}>Skip</button>
+                    <h5 className="card-title">{this.props.status.song.title}</h5>
+                    <p className="card-text">{this.props.status.song.artist}</p>
                     <p><small> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
                 </div>
             </div>
@@ -130,7 +147,6 @@ class UpcomingList extends React.Component {
             var body = (
                 <div>
                     <h2>No songs?!</h2>
-                    <button className="btn btn-outline-info" type="button" onClick={this.props.showSearch}>Add song</button>
                 </div>
             )
         }
@@ -138,6 +154,7 @@ class UpcomingList extends React.Component {
             <div className="card">
                 <div className="card-body">
                     {body}
+                    <button className="btn btn-outline-info" type="button" onClick={this.props.showSearch}>Add song</button>
                 </div>
             </div>
         );
@@ -388,10 +405,14 @@ class MainView extends React.Component {
                 <nav className="navbar navbar-dark bg-dark">
                     <a className="navbar-brand" href="#">Count Jukeula</a>
                     <button className={"btn btn-outline-info" + (this.state.is_searching ? ' active' : '')} type="button" onClick={this.toggleSearch.bind(this)}>Add song</button>
-                    <span>=)</span>
+                    <span><img src="/static/thejuke.png" width="32px" /></span>
                 </nav>
                 <p></p>
                 {body}
+                <p></p>
+                <nav className="navbar navbar-dark bg-dark">
+                    <small>Count Jukeula the Chune Maker. Powered by Spotify. Vampire by Nikita Kozin from the Noun Project</small>
+                </nav>
             </ErrorBoundary>
         );
     }
