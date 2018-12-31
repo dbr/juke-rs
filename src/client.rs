@@ -148,7 +148,8 @@ impl Client {
 
     /// Pause playback
     pub fn pause(&self) -> ClientResult<()> {
-        self.get_spotify()?.pause_playback(None)?;
+        let id = self.device.clone().and_then(|x| Some(x.id));
+        self.get_spotify()?.pause_playback(id)?;
         Ok(())
     }
 
@@ -156,7 +157,13 @@ impl Client {
     pub fn resume(&self) -> ClientResult<()> {
         let id = self.device.clone().and_then(|x| Some(x.id));
         self.get_spotify()?.start_playback(id, None, None, None)?;
+        Ok(())
+    }
 
+    /// Pause playback
+    pub fn skip(&self) -> ClientResult<()> {
+        let id = self.device.clone().and_then(|x| Some(x.id));
+        self.get_spotify()?.next_track(id)?;
         Ok(())
     }
 

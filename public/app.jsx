@@ -60,6 +60,9 @@ class PlaybackStatus extends React.Component {
     pause() {
         fetch("/api/pause");
     }
+    skip() {
+        fetch("/api/skip");
+    }
     render() {
         if (this.props.status === undefined || this.props.status.song === null || this.props.status.progress_ms === null) {
             return <div className="card">[Waiting for data]</div>;
@@ -85,7 +88,7 @@ class PlaybackStatus extends React.Component {
                     <p className="card-text">{this.props.status.song.artist}</p>
                     <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
                     <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
-                    <button className="btn btn-danger" onClick={this.skip}> Vote to skip</button>
+                    <button className="btn btn-danger" onClick={this.skip}>Skip</button>
                     <p><small> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
                 </div>
             </div>

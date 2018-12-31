@@ -118,17 +118,23 @@ fn handle_response(
         (GET) (/api/resume) => {
             // Play
             queue.lock().unwrap().queue(SpotifyCommand::Resume);
-            Response::text("ok")
+            Response::json(&WebResponse::Success)
         },
         (GET) (/api/pause) => {
             // Pause
             queue.lock().unwrap().queue(SpotifyCommand::Pause);
-            Response::text("ok")
+            Response::json(&WebResponse::Success)
         },
+        (GET) (/api/skip) => {
+            // Skip song
+            queue.lock().unwrap().queue(SpotifyCommand::Skip);
+            Response::json(&WebResponse::Success)
+        },
+
         (GET) (/api/request/{track_id:String}) => {
             // Add song to the list
             queue.lock().unwrap().queue(SpotifyCommand::Request(SongRequestInfo{track_id: track_id}));
-            Response::text("ok")
+            Response::json(&WebResponse::Success)
         },
         (GET) (/api/status) => {
             let s = global_status.read().unwrap().clone();
