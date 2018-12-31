@@ -1,4 +1,5 @@
 use failure::Error;
+use rspotify::spotify::oauth2::TokenInfo;
 use serde_derive::{Deserialize, Serialize};
 
 /// Shortcut for error return type
@@ -96,6 +97,7 @@ pub enum SpotifyCommand {
     Pause,
     Request(SongRequestInfo),
     Search(SearchParams),
+    SetAuthToken(TokenInfo),
 }
 
 #[derive(Debug, Serialize)]

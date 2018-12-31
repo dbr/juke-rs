@@ -1,3 +1,5 @@
+use failure::format_err;
+
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
 use std::time::{Instant, SystemTime};
@@ -6,6 +8,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use rspotify::spotify::client::Spotify;
 use rspotify::spotify::model::device::Device;
+use rspotify::spotify::oauth2::{SpotifyClientCredentials, TokenInfo};
 
 use crate::commands::TaskQueue;
 use crate::common::*;
@@ -45,8 +48,8 @@ impl TheList {
 }
 
 /// Handles playback/queue logic and commands Spotify
-pub struct Client<'a> {
-    spotify: &'a Spotify,
+pub struct Client {
+    spotify: Option<Spotify>,
     device: Option<Device>,
     pub the_list: TheList,
     last_status_check: Option<SystemTime>,
@@ -84,10 +87,10 @@ fn parse_playing_context(
     }
 }
 
-impl<'a> Client<'a> {
-    pub fn new(client: &'a Spotify) -> Client<'a> {
+impl Client {
+    pub fn new() -> Client {
         Client {
-            spotify: &client,
+            spotify: None,
             device: None,
             the_list: TheList::new(),
             last_status_check: None,
@@ -96,9 +99,27 @@ impl<'a> Client<'a> {
         }
     }
 
+    pub fn set_auth_token(&mut self, token: &TokenInfo) {
+        let client_credential = SpotifyClientCredentials::default()
+            .token_info(token.clone())
+            .build();
+        self.spotify = Some(
+            Spotify::default()
+                .client_credentials_manager(client_credential)
+                .build(),
+        );
+    }
+
+    fn get_spotify(&self) -> ClientResult<&Spotify> {
+        match &self.spotify {
+            None => Err(format_err!("Client not authenticated")),
+            Some(c) => Ok(&c),
+        }
+    }
+
     /// List available devices
     pub fn list_devices(&self) -> ClientResult<Vec<Device>> {
-        let devices = self.spotify.device()?;
+        let devices = self.get_spotify()?.device()?;
         Ok(devices.devices)
     }
 
@@ -110,21 +131,23 @@ impl<'a> Client<'a> {
 
     /// Pause playback
     pub fn pause(&self) -> ClientResult<()> {
-        self.spotify.pause_playback(None)?;
+        self.get_spotify()?.pause_playback(None)?;
         Ok(())
     }
 
     /// Clicks the play button
     pub fn resume(&self) -> ClientResult<()> {
         let id = self.device.clone().and_then(|x| Some(x.id));
-        self.spotify.start_playback(id, None, None, None)?;
+        self.get_spotify()?.start_playback(id, None, None, None)?;
 
         Ok(())
     }
 
     pub fn search(&self, params: &SearchParams, queue: &mut TaskQueue) -> ClientResult<()> {
         let start = Instant::now();
-        let search = self.spotify.search_track(&params.title, 10, 0, None)?;
+        let search = self
+            .get_spotify()?
+            .search_track(&params.title, 10, 0, None)?;
         let dur = start.elapsed();
         println!(
             // FIXME: Use logging
@@ -144,7 +167,7 @@ impl<'a> Client<'a> {
 
     /// Update `status` field
     pub fn update_player_status(&mut self) -> ClientResult<()> {
-        let x = self.spotify.current_playing(None)?;
+        let x = self.get_spotify()?.current_playing(None)?;
         self.status = parse_playing_context(x);
         Ok(())
     }
@@ -158,7 +181,7 @@ impl<'a> Client<'a> {
     /// Make a song start playing, replacing anything currently playing
     pub fn load_song(&mut self, track_id: String) -> ClientResult<()> {
         let id = self.device.clone().and_then(|x| Some(x.id));
-        self.spotify
+        self.get_spotify()?
             .start_playback(id, None, Some(vec![track_id]), None)?;
         Ok(())
     }

@@ -1,14 +1,10 @@
-use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
-use rspotify::spotify::util::get_token;
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
-use failure::{format_err, Error};
-
-use rspotify::spotify::client::Spotify;
+use failure::Error;
 
 mod client;
 mod commands;
@@ -26,30 +22,11 @@ fn spotify_ctrl(
     global_status: &Arc<RwLock<PlaybackStatus>>,
     global_queue: &Arc<RwLock<TheList>>,
 ) -> Result<(), Error> {
-    println!("Starting auth");
-
-    // Perform auth
-    let mut oauth = SpotifyOAuth::default()
-        .scope("user-read-playback-state user-modify-playback-state")
-        .build();
-
-    let token_info = get_token(&mut oauth).ok_or_else(|| format_err!("Failed to get token"))?;
-
-    println!("Got token");
-
-    // Create client
-    let client_credential = SpotifyClientCredentials::default()
-        .token_info(token_info)
-        .build();
-    let spotify = Spotify::default()
-        .client_credentials_manager(client_credential)
-        .build();
-
     // Create client wrapper
-    let mut client = Client::new(&spotify);
-    let devices = client.list_devices()?;
-    // FIXME: Handle no devices!
-    client.set_active_device(devices[0].clone())?;
+    let mut client = Client::new();
+    // FIXME
+    //let devices = client.list_devices()?;
+    // client.set_active_device(devices[0].clone())?;
 
     // Wait for commands from the web-thread
     loop {
@@ -62,6 +39,7 @@ fn spotify_ctrl(
                 SpotifyCommand::Resume => client.resume()?,
                 SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
                 SpotifyCommand::Search(sp) => client.search(&sp, &mut q)?,
+                SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),
             };
         } else {
             // Wait for new commands

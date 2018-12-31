@@ -75,6 +75,16 @@ fn websocket_handling_thread(
     }
 }
 
+fn generate_random_string(length: usize) -> String {
+    use rand::distributions::Alphanumeric;
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    std::iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .take(length)
+        .collect()
+}
+
 fn handle_response(
     request: &Request,
     queue: &LockedTaskQueue,
@@ -136,6 +146,31 @@ fn handle_response(
                 CommandResponseDataType::Search(d) => WebResponse::Search(d)
             };
             Response::json(&inner)
+        },
+        (GET) (/auth) => {
+            // FIXME: Move elsewhere
+            let oauth = rspotify::spotify::oauth2::SpotifyOAuth::default()
+                .scope("user-read-playback-state user-modify-playback-state")
+                .build();
+
+            let state = generate_random_string(16);
+            let auth_url = oauth.get_authorize_url(Some(&state), None);
+            Response::redirect_302(auth_url)
+        },
+        (GET) (/postauth) => {
+            // http://localhost:8081/postauth?code=...&state=...
+            let so = rspotify::spotify::oauth2::SpotifyOAuth::default();
+            let token = match request.get_param("code") {
+                Some(c) => so.get_access_token(&c),
+                None => None,
+            };
+            if let Some(t) = token {
+                let mut q = queue.lock().unwrap();
+                q.queue(SpotifyCommand::SetAuthToken(t));
+                Response::redirect_302("/")
+            } else {
+                Response::text("Missing ?code= param").with_status_code(500)
+            }
         },
 
         // default route
