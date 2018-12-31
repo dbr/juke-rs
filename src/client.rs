@@ -212,9 +212,6 @@ impl Client {
             // Update status
             self.update_player_status()?;
 
-            // FIXME: Quiet
-            println!("Songs in queue {:?}", self.the_list.songs);
-
             // Enqueue song if needed
             if self.status.state == PlaybackState::NeedsSong {
                 self.enqueue()?;
