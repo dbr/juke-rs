@@ -118,15 +118,32 @@ impl Client {
     }
 
     /// List available devices
-    pub fn list_devices(&self) -> ClientResult<Vec<Device>> {
+    pub fn list_devices(
+        &self,
+        params: &DeviceListParams,
+        queue: &mut TaskQueue,
+    ) -> ClientResult<()> {
         let devices = self.get_spotify()?.device()?;
-        Ok(devices.devices)
+        queue.respond(CommandResponse {
+            tid: params.tid,
+            value: CommandResponseDataType::DeviceList(DeviceListResult {
+                items: devices.devices,
+            }),
+        });
+        Ok(())
     }
 
     /// Sets one of the devices from `list_devices` as the active one
-    pub fn set_active_device(&mut self, device: Device) -> ClientResult<()> {
-        self.device = Some(device);
-        Ok(())
+    pub fn set_active_device(&mut self, id: String) -> ClientResult<()> {
+        let devices = self.get_spotify()?.device()?;
+        for d in devices.devices {
+            if d.id == id {
+                println!("Device set as active: {:?}", d);
+                self.device = Some(d);
+                return Ok(());
+            }
+        }
+        Err(format_err!("No device found with ID {}", id))
     }
 
     /// Pause playback

@@ -96,6 +96,22 @@ pub struct SearchResult {
     pub items: Vec<BasicSongInfo>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Device {
+    name: String,
+    id: String,
+}
+
+#[derive(Debug)]
+pub struct DeviceListParams {
+    pub tid: TaskID,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceListResult {
+    pub items: Vec<rspotify::spotify::model::device::Device>,
+}
+
 /// Things web-server can ask Spotify thread to do
 #[derive(Debug)]
 pub enum SpotifyCommand {
@@ -104,19 +120,25 @@ pub enum SpotifyCommand {
     Request(SongRequestInfo),
     Search(SearchParams),
     SetAuthToken(TokenInfo),
+    ListDevices(DeviceListParams),
+    SetActiveDevice(String),
 }
 
+/// Types of things a Spotify thread can respond to a command with
 #[derive(Debug, Serialize)]
 pub enum CommandResponseDataType {
     Search(SearchResult),
+    DeviceList(DeviceListResult),
 }
 
+/// Spotify commands can respond with this type
 #[derive(Debug)]
 pub struct CommandResponse {
     pub tid: TaskID,
     pub value: CommandResponseDataType,
 }
 
+/// Identifier for a task, used to match up return values
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct TaskID {
     pub id: u64,

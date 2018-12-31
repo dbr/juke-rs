@@ -28,36 +28,49 @@ fn spotify_ctrl(
     //let devices = client.list_devices()?;
     // client.set_active_device(devices[0].clone())?;
 
-    // Wait for commands from the web-thread
+    let mut innerloop = || -> Result<(), Error> {
+        loop {
+            // Wait for commands from the web-thread
+            let mut q = queue.lock().unwrap();
+            let queue_content = q.pop();
+            if let Some(c) = queue_content {
+                println!("Got command: {:?}", c);
+                match c {
+                    SpotifyCommand::Pause => client.pause()?,
+                    SpotifyCommand::Resume => client.resume()?,
+                    SpotifyCommand::Skip => client.skip()?,
+                    SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
+                    SpotifyCommand::Search(sp) => client.search(&sp, &mut q)?,
+                    SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),
+                    SpotifyCommand::ListDevices(lp) => client.list_devices(&lp, &mut q)?,
+                    SpotifyCommand::SetActiveDevice(id) => client.set_active_device(id)?,
+                };
+            } else {
+                // Wait for new commands
+                sleep(Duration::from_millis(50));
+                client.routine()?;
+            }
+
+            // Update global status object if needed
+            if *global_status.read().unwrap() != client.status {
+                // TODO: Is this even necessary, could it just update always?
+                let mut s = global_status.write().unwrap();
+                *s = client.status.clone();
+            }
+
+            if *global_queue.read().unwrap() != client.the_list {
+                // TODO: Is this even necessary, could it just update always?
+                let mut q = global_queue.write().unwrap();
+                *q = client.the_list.clone();
+            }
+        }
+    };
+
     loop {
-        let mut q = queue.lock().unwrap();
-        let queue_content = q.pop();
-        if let Some(c) = queue_content {
-            println!("Got command: {:?}", c);
-            match c {
-                SpotifyCommand::Pause => client.pause()?,
-                SpotifyCommand::Resume => client.resume()?,
-                SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
-                SpotifyCommand::Search(sp) => client.search(&sp, &mut q)?,
-                SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),
-            };
-        } else {
-            // Wait for new commands
-            sleep(Duration::from_millis(50));
-            client.routine()?;
-        }
-
-        // Update global status object if needed
-        if *global_status.read().unwrap() != client.status {
-            // TODO: Is this even necessary, could it just update always?
-            let mut s = global_status.write().unwrap();
-            *s = client.status.clone();
-        }
-
-        if *global_queue.read().unwrap() != client.the_list {
-            // TODO: Is this even necessary, could it just update always?
-            let mut q = global_queue.write().unwrap();
-            *q = client.the_list.clone();
+        let r = innerloop();
+        match r {
+            Ok(_) => (),
+            Err(e) => eprintln!("{:?}", e),
         }
     }
 }

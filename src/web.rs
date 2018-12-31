@@ -10,8 +10,8 @@ use rouille::{router, try_or_400, websocket, Request, Response};
 use crate::client::TheList;
 use crate::commands::LockedTaskQueue;
 use crate::common::{
-    CommandResponse, CommandResponseDataType, PlaybackStatus, SearchParams, SearchResult,
-    SongRequestInfo, SpotifyCommand, TaskID,
+    CommandResponse, CommandResponseDataType, DeviceListParams, DeviceListResult, PlaybackStatus,
+    SearchParams, SearchResult, SongRequestInfo, SpotifyCommand, TaskID,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -20,6 +20,8 @@ pub enum WebResponse {
     Status(PlaybackStatus),
     Search(SearchResult),
     Queue(TheList),
+    DeviceList(DeviceListResult),
+    Error(String),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -132,6 +134,24 @@ fn handle_response(
             let s = global_status.read().unwrap().clone();
             Response::json(&WebResponse::Status(s))
         },
+        (GET) (/api/device/list) => {
+            let tid: TaskID = {
+                let mut q = queue.lock().unwrap();
+                let tid = q.get_task_id();
+                q.queue(SpotifyCommand::ListDevices(DeviceListParams{tid: tid}));
+                tid
+            };
+            let r = wait_for_task(&queue, tid);
+            let inner = match r.value {
+                CommandResponseDataType::DeviceList(d) => WebResponse::DeviceList(d),
+                _ => WebResponse::Error(format!("Unexpected response from command in /api/device/list")),
+            };
+            Response::json(&inner)
+        },
+        (GET) (/api/device/set/{id:String}) => {
+            queue.lock().unwrap().queue(SpotifyCommand::SetActiveDevice(id));
+            Response::text("{\"result\":\"ok\"}")
+        },
         (GET) (/search/track/{term:String}) => {
             // Queue search task and drop lock
             let tid: TaskID = {
@@ -143,7 +163,8 @@ fn handle_response(
 
             let r = wait_for_task(&queue, tid);
             let inner = match r.value {
-                CommandResponseDataType::Search(d) => WebResponse::Search(d)
+                CommandResponseDataType::Search(d) => WebResponse::Search(d),
+                _ => WebResponse::Error(format!("Unexpected response from command in /search/track/...")),
             };
             Response::json(&inner)
         },

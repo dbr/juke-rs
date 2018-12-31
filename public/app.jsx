@@ -4,7 +4,7 @@ class ErrorBoundary extends React.Component {
         this.state = { error: null, errorInfo: null };
     }
 
-    componentDidCatchAAAAA(error, info) {
+    componentDidCatch(error, info) {
         this.setState({
             error: error,
             errorInfo: errorInfo
@@ -61,7 +61,7 @@ class PlaybackStatus extends React.Component {
         fetch("/api/pause");
     }
     render() {
-        if (this.props.status === undefined) {
+        if (this.props.status === undefined || this.props.status.song === null || this.props.status.progress_ms === null) {
             return <div className="card">[Waiting for data]</div>;
         }
 
@@ -85,7 +85,7 @@ class PlaybackStatus extends React.Component {
                     <p className="card-text">{this.props.status.song.artist}</p>
                     <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
                     <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
-                    <button className="btn btn-danger">Vote to skip</button>
+                    <button className="btn btn-danger" onClick={this.skip}> Vote to skip</button>
                     <p><small> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
                 </div>
             </div>
@@ -144,7 +144,7 @@ class UpcomingList extends React.Component {
 class SearchWidget extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { value: '', data: [] };
+        this.state = { value: '', data: [], busy: false };
 
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
@@ -186,26 +186,29 @@ class SearchWidget extends React.Component {
 
     play(event) {
         event.preventDefault();
-        console.log(event.currentTarget);
         let spotify_uri = event.currentTarget.dataset.spotifyurl;
         var u = "/api/request/" + encodeURIComponent(spotify_uri);
+        this.setState({busy: true});
         fetch(u).then(function (resp) {
+            this.cancel();
             return resp.json(); // FIXME: Handle error
         }.bind(this)).then(function (d) {
-            console.log(d);
+            console.log("Requested song", d);
         }.bind(this));
     }
 
     render() {
+        if(this.state.busy) {
+            return <div>Please wait...</div>;
+        }
         // Format search results if any
-        console.log(this.state.data.Search);
         if (this.state.data.Search && this.state.data.Search.items.length > 0) {
             var sr = <ul className="list-group">
                 {this.state.data.Search.items.map(
                     (x) => <li className="list-group-item" key={x.spotify_uri}>
                         <a href="#" onClick={this.play.bind(this)} data-spotifyurl={x.spotify_uri}>
                             <img src={x.album_image_url} width={32} />
-                            <b>{x.title}</b> by <b>{x.artist}</b> ({formatDuration(x.duration_ms/1000)})
+                            <b>{x.title}</b> by <b>{x.artist}</b> ({formatDuration(x.duration_ms / 1000)})
                         </a>
                     </li>)}
             </ul>
@@ -224,6 +227,59 @@ class SearchWidget extends React.Component {
                     </form>
                     {sr}
                     <button className="btn btn-outline-secondary" type="button" onClick={this.cancel.bind(this)}>Cancel</button>
+                </div>
+            </div>
+        );
+    }
+}
+
+
+class SelectDevice extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { data: null };
+        setTimeout(this.refresh.bind(this), 0);
+    }
+    refresh() {
+        self = this;
+        var u = "/api/device/list";
+        fetch(u).then(function (resp) {
+            return resp.json(); // FIXME: Handle error
+        }).then(function (d) {
+            self.setState({ data: d });
+        })
+    }
+
+    setActive(event) {
+        event.preventDefault();
+        let id = event.currentTarget.dataset.id;
+        var u = "/api/device/set/" + encodeURIComponent(id);
+        fetch(u).then(function (resp) {
+            return resp.json(); // FIXME: Handle error
+        }.bind(this)).then(function (d) {
+            console.log(d);
+        }.bind(this));
+    }
+
+    render() {
+        // Format search results if any
+        if (this.state.data && this.state.data.DeviceList && this.state.data.DeviceList.items.length > 0) {
+            var sr = <ul className="list-group">
+                {this.state.data.DeviceList.items.map(
+                    (x) => <li className="list-group-item" key={x.id}>
+                        <a href="#" onClick={this.setActive.bind(this)} data-id={x.id}>
+                            Play on <b>{x.name}</b>
+                        </a>
+                    </li>)}
+            </ul>
+        } else {
+            var sr = <div>No active devices - ensure a desktop Spotify client is running and online</div>;
+        }
+        return (
+            <div className="card">
+                <div className="card-body">
+                    <h2>Select playback device</h2>
+                    {sr}
                 </div>
             </div>
         );
@@ -294,6 +350,16 @@ class MainView extends React.Component {
     }
 
     render() {
+        if (this.state.status === undefined) {
+            return <div className="card">[Waiting for data]</div>;
+        }
+        if (this.state.status.state == 'NoAuth') {
+            return <div className="card"><div className="card-item">[Need authentication!] <a href="/auth">Host must log in with Spotify!</a></div></div>;
+        }
+        if (this.state.status.state == 'NoDevice') {
+            return <SelectDevice />;
+        }
+
         if (this.state.is_searching) {
             var body = (
                 <div className="row">
