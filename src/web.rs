@@ -77,6 +77,8 @@ fn websocket_handling_thread(
     }
 }
 
+static CONTENT_INDEX: &'static str = include_str!("../public/index.html");
+
 fn generate_random_string(length: usize) -> String {
     use rand::distributions::Alphanumeric;
     use rand::Rng;
@@ -103,7 +105,7 @@ fn handle_response(
         (GET) (/) => {
             // Index
             // FIXME: Serve status stuff
-            Response::html("Hi")
+            Response::html(CONTENT_INDEX)
         },
         (GET) (/ws) => {
             let (response, websocket) = try_or_400!(websocket::start(&request, Some("juke")));
