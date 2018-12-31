@@ -167,8 +167,23 @@ impl Client {
 
     /// Update `status` field
     pub fn update_player_status(&mut self) -> ClientResult<()> {
-        let x = self.get_spotify()?.current_playing(None)?;
-        self.status = parse_playing_context(x);
+        self.status = if let None = self.spotify {
+            // No spotify API client
+            PlaybackStatus {
+                state: PlaybackState::NoAuth,
+                ..PlaybackStatus::default()
+            }
+        } else if let None = self.device {
+            // No active device
+            PlaybackStatus {
+                state: PlaybackState::NoDevice,
+                ..PlaybackStatus::default()
+            }
+        } else {
+            // Check what is playing
+            let x = self.get_spotify()?.current_playing(None)?;
+            parse_playing_context(x)
+        };
         Ok(())
     }
 

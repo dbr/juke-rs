@@ -11,6 +11,12 @@ pub enum PlaybackState {
     /// No client etc?
     Unknown,
 
+    /// Requires an auth token
+    NoAuth,
+
+    /// Missing a device to control, set via `Client::set_active_device`
+    NoDevice,
+
     /// Awaiting a song to play
     NeedsSong,
 
