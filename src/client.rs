@@ -1,5 +1,6 @@
 use failure::format_err;
 
+use log::{debug, info, trace, warn};
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
 use std::time::{Instant, SystemTime};
@@ -27,6 +28,7 @@ impl TheList {
     }
 
     fn add(&mut self, track_id: String) {
+        debug!("Added song {:?}", track_id);
         let existing: i64 = *self.songs.get(&track_id).unwrap_or(&0);
         self.songs.insert(track_id, existing + 1);
     }
@@ -100,6 +102,7 @@ impl Client {
     }
 
     pub fn set_auth_token(&mut self, token: &TokenInfo) {
+        trace!("Setting auth token");
         let client_credential = SpotifyClientCredentials::default()
             .token_info(token.clone())
             .build();
@@ -123,6 +126,7 @@ impl Client {
         params: &DeviceListParams,
         queue: &mut TaskQueue,
     ) -> ClientResult<()> {
+        trace!("Listing devices");
         let devices = self.get_spotify()?.device()?;
         queue.respond(CommandResponse {
             tid: params.tid,
@@ -135,10 +139,11 @@ impl Client {
 
     /// Sets one of the devices from `list_devices` as the active one
     pub fn set_active_device(&mut self, id: String) -> ClientResult<()> {
+        trace!("Setting {} as active device", id);
         let devices = self.get_spotify()?.device()?;
         for d in devices.devices {
             if d.id == id {
-                println!("Device set as active: {:?}", d);
+                info!("Device set as active: {:?}", d);
                 self.device = Some(d);
                 return Ok(());
             }
@@ -148,6 +153,7 @@ impl Client {
 
     /// Pause playback
     pub fn pause(&self) -> ClientResult<()> {
+        info!("Pausing");
         let id = self.device.clone().and_then(|x| Some(x.id));
         self.get_spotify()?.pause_playback(id)?;
         Ok(())
@@ -155,6 +161,7 @@ impl Client {
 
     /// Clicks the play button
     pub fn resume(&self) -> ClientResult<()> {
+        info!("Resume");
         let id = self.device.clone().and_then(|x| Some(x.id));
         self.get_spotify()?.start_playback(id, None, None, None)?;
         Ok(())
@@ -162,20 +169,21 @@ impl Client {
 
     /// Pause playback
     pub fn skip(&self) -> ClientResult<()> {
+        info!("Skipping track");
         let id = self.device.clone().and_then(|x| Some(x.id));
         self.get_spotify()?.next_track(id)?;
         Ok(())
     }
 
     pub fn search(&self, params: &SearchParams, queue: &mut TaskQueue) -> ClientResult<()> {
+        debug!("Searching for {:?}", params);
         let start = Instant::now();
         let search = self
             .get_spotify()?
             .search_track(&params.title, 10, 0, None)?;
         let dur = start.elapsed();
-        println!(
-            // FIXME: Use logging
-            "Search took {}",
+        trace!(
+            "Search took {}ms",
             dur.as_secs() * 1000 + u64::from(dur.subsec_millis())
         );
         let mut sr = vec![];
@@ -205,6 +213,7 @@ impl Client {
             }
         } else {
             // Check what is playing
+            trace!("Querying current playing");
             let x = self.get_spotify()?.current_playing(None)?;
             parse_playing_context(x)
         };
@@ -213,12 +222,14 @@ impl Client {
 
     /// Adds specified track to "the list for consideration"
     pub fn request(&mut self, track_id: String) -> ClientResult<()> {
+        debug!("Requested song {}", track_id);
         self.the_list.add(track_id);
         Ok(())
     }
 
     /// Make a song start playing, replacing anything currently playing
     pub fn load_song(&mut self, track_id: String) -> ClientResult<()> {
+        trace!("Starting playback of song");
         let id = self.device.clone().and_then(|x| Some(x.id));
         self.get_spotify()?
             .start_playback(id, None, Some(vec![track_id]), None)?;
@@ -228,6 +239,7 @@ impl Client {
     /// Take a song from the list and make it go
     pub fn enqueue(&mut self) -> ClientResult<()> {
         if let Some(t) = self.the_list.nextup() {
+            trace!("Enqueuing song");
             self.load_song(t)?;
             self.status.state = PlaybackState::EnqueuedAndWaiting; // TODO: Is this state necessary?
         }
@@ -245,6 +257,7 @@ impl Client {
         };
 
         if time_for_thing {
+            trace!("Checking status");
             // Sufficent time has elapsed
             self.last_status_check = Some(SystemTime::now());
 

@@ -1,3 +1,4 @@
+use log::{info, trace, warn};
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -24,9 +25,6 @@ fn spotify_ctrl(
 ) -> Result<(), Error> {
     // Create client wrapper
     let mut client = Client::new();
-    // FIXME
-    //let devices = client.list_devices()?;
-    // client.set_active_device(devices[0].clone())?;
 
     let mut innerloop = || -> Result<(), Error> {
         loop {
@@ -34,7 +32,7 @@ fn spotify_ctrl(
             let mut q = queue.lock().unwrap();
             let queue_content = q.pop();
             if let Some(c) = queue_content {
-                println!("Got command: {:?}", c);
+                trace!("Got command: {:?}", c);
                 match c {
                     SpotifyCommand::Pause => client.pause()?,
                     SpotifyCommand::Resume => client.resume()?,
@@ -70,23 +68,29 @@ fn spotify_ctrl(
         let r = innerloop();
         match r {
             Ok(_) => (),
-            Err(e) => eprintln!("{:?}", e),
+            Err(e) => warn!("{:?}", e),
         }
     }
 }
 
 /// Start all threads
 fn main() {
+    std::env::set_var("RUST_LOG", "juke=debug");
+    env_logger::init();
+
+    info!("Setup commencing");
     let status: Arc<RwLock<PlaybackStatus>> = Arc::new(RwLock::new(PlaybackStatus::default()));
 
     let tasks = Arc::new(Mutex::new(TaskQueue::new()));
     let thelist = Arc::new(RwLock::new(TheList::new()));
 
+    info!("Starting web thread");
     let q1 = tasks.clone();
     let s1 = status.clone();
     let l1 = thelist.clone();
     let w = thread::spawn(move || web(q1, s1, l1));
 
+    info!("Starting Spotify thread");
     let q2 = tasks.clone();
     let s2 = status.clone();
     let l2 = thelist.clone();
