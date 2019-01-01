@@ -1,6 +1,6 @@
 use failure::format_err;
 
-use log::{debug, info, trace, warn};
+use log::{debug, info, trace};
 use rand::seq::SliceRandom;
 use std::collections::hash_map::Entry;
 use std::time::{Instant, SystemTime};
@@ -55,8 +55,19 @@ pub struct Client {
     device: Option<Device>,
     pub the_list: TheList,
     last_status_check: Option<SystemTime>,
+    last_token_refresh: Option<SystemTime>,
     pub status: PlaybackStatus,
     status_check_interval_ms: u32,
+    token_refresh_interval_ms: u32,
+}
+
+/// Convert `Duration` into milliseconds (as u64), to be used until
+/// the `as_millis` method is stable (returns u128). Max `u64` milliseconds
+/// is only 49 days whereas `u128` is only 10^28 years..
+/// Enough for our purposes
+fn duration_as_millis(d: std::time::Duration) -> u64 {
+    // TOOD: Replace with Duration::as_millis becomes stable
+    (d.as_secs() * 1000) + u64::from(d.subsec_millis())
 }
 
 /// Turn Spotify API structure into internal `PlaybackStatus`
@@ -96,8 +107,10 @@ impl Client {
             device: None,
             the_list: TheList::new(),
             last_status_check: None,
+            last_token_refresh: None,
             status: PlaybackStatus::default(),
             status_check_interval_ms: 1000,
+            token_refresh_interval_ms: 1000 * 60 * 5,
         }
     }
 
@@ -182,10 +195,7 @@ impl Client {
             .get_spotify()?
             .search_track(&params.title, 10, 0, None)?;
         let dur = start.elapsed();
-        trace!(
-            "Search took {}ms",
-            dur.as_secs() * 1000 + u64::from(dur.subsec_millis())
-        );
+        trace!("Search took {}ms", duration_as_millis(dur));
         let mut sr = vec![];
         for s in search.tracks.items {
             sr.push(s.into());
@@ -194,6 +204,19 @@ impl Client {
             tid: params.tid,
             value: CommandResponseDataType::Search(SearchResult { items: sr }),
         });
+        Ok(())
+    }
+
+    /// Refresh auth token which expires every hour or so
+    fn refresh_auth_token(&mut self) -> ClientResult<()> {
+        let c = self.get_spotify()?;
+        //rspotify::spotify::oauth2::
+        if let Some(ref ccm) = c.client_credentials_manager {
+            let t = ccm.token_info.clone().unwrap();
+            let rt = t.refresh_token.clone().unwrap();
+            let newtoken = t.refresh_token(&rt);
+            self.set_auth_token(&newtoken);
+        }
         Ok(())
     }
 
@@ -248,25 +271,44 @@ impl Client {
 
     /// Called very often, performs regular activities like checking if Spotify is ready to play next song
     pub fn routine(&mut self) -> ClientResult<()> {
-        // Wait a reasonable amount of time before pinging Spotify API for playback status
-        let time_for_thing = if let Some(lc) = self.last_status_check {
-            let x = lc.elapsed()?;
-            x.as_secs() > 0 || x.subsec_millis() > self.status_check_interval_ms
-        } else {
-            true
-        };
+        {
+            // Wait a reasonable amount of time before pinging Spotify API for playback status
+            let time_for_thing = if let Some(lc) = self.last_status_check {
+                let x = lc.elapsed()?;
+                duration_as_millis(x) > self.status_check_interval_ms.into()
+            } else {
+                true
+            };
 
-        if time_for_thing {
-            trace!("Checking status");
-            // Sufficent time has elapsed
-            self.last_status_check = Some(SystemTime::now());
+            if time_for_thing {
+                trace!("Checking status");
+                // Sufficent time has elapsed
+                self.last_status_check = Some(SystemTime::now());
 
-            // Update status
-            self.update_player_status()?;
+                // Update status
+                self.update_player_status()?;
 
-            // Enqueue song if needed
-            if self.status.state == PlaybackState::NeedsSong {
-                self.enqueue()?;
+                // Enqueue song if needed
+                if self.status.state == PlaybackState::NeedsSong {
+                    self.enqueue()?;
+                }
+            }
+        }
+        {
+            let time_for_refresh = if let Some(rt) = self.last_token_refresh {
+                let x = rt.elapsed()?;
+                duration_as_millis(x) > self.token_refresh_interval_ms.into()
+            } else {
+                true
+            };
+            if time_for_refresh {
+                if let None = self.spotify {
+                    // Not yet authenticated, so refreshign token is no-op
+                } else {
+                    debug!("Time to refresh auth token");
+                    self.refresh_auth_token()?;
+                }
+                self.last_token_refresh = Some(SystemTime::now());
             }
         }
         Ok(())
