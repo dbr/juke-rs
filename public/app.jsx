@@ -117,8 +117,8 @@ class UpcomingListItem extends React.Component {
     render() {
         return (
             <li className="list-group-item">
-                <img src="https://i.scdn.co/image/dcce0a15014719c88fac01d00d3921a17037467b" className="mr-3" alt="Album art" width="32px" />
-                <b>{this.props.song}</b> by <b>{this.props.artist}</b>
+                <img src={this.props.song.album_image_url} className="mr-3" alt="Album art" width="32px" />
+                <b>{this.props.song.title}</b> by <b>{this.props.song.artist}</b>
                 <div className="float-right">
                     <button className="small primary">+1</button>
                     <button className="small secondary">Booo</button>
@@ -139,7 +139,7 @@ class UpcomingList extends React.Component {
                 <div>
                     <h2>Upcoming songs, in no particular order:</h2>
                     <ul className="list-group">
-                        {Object.keys(this.props.queue.songs).map((s) => <UpcomingListItem key={s} song={s} />)}
+                        {Object.keys(this.props.queue.songs).map((k) => <UpcomingListItem key={k} song={this.props.queue.songs[k]} />)}
                     </ul>
                 </div>
             );

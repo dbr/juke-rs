@@ -30,7 +30,7 @@ pub enum PlaybackState {
     EnqueuedAndWaiting,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Hash, Eq, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BasicSongInfo {
     /// Spotify ID
     pub spotify_uri: String,

@@ -17,35 +17,45 @@ use crate::common::*;
 /// Handles the requested song queue, with weighting etc
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TheList {
-    pub songs: std::collections::HashMap<String, i64>,
+    pub votes: std::collections::HashMap<String, i64>,
+    pub songs: std::collections::HashMap<String, BasicSongInfo>,
 }
 
 impl TheList {
     pub fn new() -> TheList {
         TheList {
+            votes: std::collections::HashMap::new(),
             songs: std::collections::HashMap::new(),
         }
     }
 
-    fn add(&mut self, track_id: String) {
+    fn add(&mut self, track_id: BasicSongInfo) {
         debug!("Added song {:?}", track_id);
-        let existing: i64 = *self.songs.get(&track_id).unwrap_or(&0);
-        self.songs.insert(track_id, existing + 1);
+        let key = &track_id.spotify_uri;
+        self.votes.entry(key.clone()).or_insert(0);
+        self.songs.entry(key.clone()).or_insert(track_id);
     }
 
-    fn nextup(&mut self) -> Option<String> {
+    fn nextup(&mut self) -> Option<BasicSongInfo> {
+        // TODO: This method can probably be simplified
         let hm = {
             let mut rng = rand::thread_rng();
-            let keys: Vec<&String> = self.songs.keys().collect();
+            let keys: Vec<&String> = self.votes.keys().collect();
             let hm = keys.choose(&mut rng)?;
-            hm.to_string().clone()
+            hm.clone()
         };
 
-        if let Entry::Occupied(o) = self.songs.entry(hm.to_string()) {
-            o.remove_entry();
+        if let Entry::Occupied(o) = self.votes.entry(hm.to_string()) {
+            let (key, _votes) = o.remove_entry();
+            if let Entry::Occupied(o) = self.songs.entry(key) {
+                let (_, value) = o.remove_entry();
+                return Some(value);
+            } else {
+                return None;
+            }
+        } else {
+            return None;
         };
-
-        Some(hm.to_string())
     }
 }
 
@@ -246,16 +256,19 @@ impl Client {
     /// Adds specified track to "the list for consideration"
     pub fn request(&mut self, track_id: String) -> ClientResult<()> {
         debug!("Requested song {}", track_id);
-        self.the_list.add(track_id);
+        let c = self.get_spotify()?;
+        let track = c.track(&track_id)?;
+        let x: BasicSongInfo = track.into();
+        self.the_list.add(x);
         Ok(())
     }
 
     /// Make a song start playing, replacing anything currently playing
-    pub fn load_song(&mut self, track_id: String) -> ClientResult<()> {
+    pub fn load_song(&mut self, track: BasicSongInfo) -> ClientResult<()> {
         trace!("Starting playback of song");
         let id = self.device.clone().and_then(|x| Some(x.id));
         self.get_spotify()?
-            .start_playback(id, None, Some(vec![track_id]), None)?;
+            .start_playback(id, None, Some(vec![track.spotify_uri]), None)?;
         Ok(())
     }
 
