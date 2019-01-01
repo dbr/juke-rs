@@ -76,7 +76,7 @@ pub struct Client {
 /// is only 49 days whereas `u128` is only 10^28 years..
 /// Enough for our purposes
 fn duration_as_millis(d: std::time::Duration) -> u64 {
-    // TOOD: Replace with Duration::as_millis becomes stable
+    // TOOD: Replace when Duration::as_millis becomes stable
     (d.as_secs() * 1000) + u64::from(d.subsec_millis())
 }
 

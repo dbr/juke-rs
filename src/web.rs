@@ -1,3 +1,4 @@
+use log::info;
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
@@ -220,7 +221,6 @@ fn handle_response(
             Response::redirect_302(auth_url)
         },
         (GET) (/postauth) => {
-            // http://localhost:8081/postauth?code=...&state=...
             let so = rspotify::spotify::oauth2::SpotifyOAuth::default();
             let token = match request.get_param("code") {
                 Some(c) => so.get_access_token(&c),
@@ -235,7 +235,7 @@ fn handle_response(
             }
         },
 
-        // default route
+        // Default route
         _ => Response::text("404 Not found").with_status_code(404)
     )
 }
@@ -246,7 +246,9 @@ pub fn web(
     global_status: Arc<RwLock<PlaybackStatus>>,
     global_queue: Arc<RwLock<TheList>>,
 ) {
-    rouille::start_server("0.0.0.0:8081", move |request| {
+    let addr = "0.0.0.0:8081";
+    info!("Listening on http://{}", addr);
+    rouille::start_server(addr, move |request| {
         handle_response(request, &queue.clone(), &global_status, &global_queue)
     });
 }
