@@ -136,6 +136,22 @@ impl Client {
         );
     }
 
+    /// Refresh auth token which expires every hour or so
+    fn refresh_auth_token(&mut self) -> ClientResult<()> {
+        let c = self.get_spotify()?;
+        let oauth = rspotify::spotify::oauth2::SpotifyOAuth::default()
+            .scope("user-read-playback-state user-modify-playback-state")
+            .build();
+
+        if let Some(ref ccm) = c.client_credentials_manager {
+            let t = ccm.token_info.clone().unwrap();
+            let rt = t.refresh_token.clone().unwrap();
+            let newtoken = oauth.refresh_access_token(&rt).unwrap();
+            self.set_auth_token(&newtoken);
+        }
+        Ok(())
+    }
+
     fn get_spotify(&self) -> ClientResult<&Spotify> {
         match &self.spotify {
             None => Err(format_err!("Client not authenticated")),
@@ -214,19 +230,6 @@ impl Client {
             tid: params.tid,
             value: CommandResponseDataType::Search(SearchResult { items: sr }),
         });
-        Ok(())
-    }
-
-    /// Refresh auth token which expires every hour or so
-    fn refresh_auth_token(&mut self) -> ClientResult<()> {
-        let c = self.get_spotify()?;
-        //rspotify::spotify::oauth2::
-        if let Some(ref ccm) = c.client_credentials_manager {
-            let t = ccm.token_info.clone().unwrap();
-            let rt = t.refresh_token.clone().unwrap();
-            let newtoken = t.refresh_token(&rt);
-            self.set_auth_token(&newtoken);
-        }
         Ok(())
     }
 
