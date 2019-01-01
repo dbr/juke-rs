@@ -77,8 +77,6 @@ fn websocket_handling_thread(
     }
 }
 
-static CONTENT_INDEX: &'static str = include_str!("../public/index.html");
-
 fn generate_random_string(length: usize) -> String {
     use rand::distributions::Alphanumeric;
     use rand::Rng;
@@ -89,6 +87,8 @@ fn generate_random_string(length: usize) -> String {
         .collect()
 }
 
+static CONTENT_INDEX: &'static str = include_str!("../public/index.html");
+
 fn handle_response(
     request: &Request,
     queue: &LockedTaskQueue,
@@ -96,8 +96,41 @@ fn handle_response(
     global_queue: &Arc<RwLock<TheList>>,
 ) -> Response {
     if let Some(request) = request.remove_prefix("/static") {
-        // TODO: Maybe use std::include_str! instead to have binary self-contained?
-        return rouille::match_assets(&request, "public");
+        if !cfg!(debug_assertions) {
+            // In release mode, bundle static stuff into binary via include_str!
+            if &request.url() == "/thejuke.png" {
+                return Response::from_data(
+                    "image/png",
+                    include_bytes!("../public/thejuke.png").to_vec(),
+                );
+            };
+            let x = match request.url().as_ref() {
+                "/app.jsx" => Some((include_str!("../public/app.jsx"), "application/javascript")),
+                "/babel.min.js" => Some((
+                    include_str!("../public/babel.min.js"),
+                    "application/javascript",
+                )),
+                "/react-dom.production.min.js" => Some((
+                    include_str!("../public/react-dom.production.min.js"),
+                    "application/javascript",
+                )),
+                "/react.production.min.js" => Some((
+                    include_str!("../public/react.production.min.js"),
+                    "application/javascript",
+                )),
+                "/bootstrap.min.css" => {
+                    Some((include_str!("../public/bootstrap.min.css"), "text/css"))
+                }
+                _ => None,
+            };
+            return match x {
+                None => Response::text("404").with_status_code(404),
+                Some((data, t)) => Response::from_data(t, data),
+            };
+        } else {
+            // In debug build, read assets from folder for reloadability
+            return rouille::match_assets(&request, "public");
+        }
     }
 
     // Main route
