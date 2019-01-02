@@ -75,6 +75,13 @@ fn spotify_ctrl(
 
 /// Start all threads
 fn main() {
+    let cfg = Config {
+        web_host: "0.0.0.0".to_string(),
+        web_port: std::env::var("PORT")
+            .unwrap_or("8081".to_string())
+            .parse::<u32>()
+            .expect("Malformed $PORT value"),
+    };
     std::env::set_var("RUST_LOG", "juke=debug");
     env_logger::init();
 
@@ -88,7 +95,7 @@ fn main() {
     let q1 = tasks.clone();
     let s1 = status.clone();
     let l1 = thelist.clone();
-    let w = thread::spawn(move || web(q1, s1, l1));
+    let w = thread::spawn(move || web(q1, s1, l1, &cfg));
 
     info!("Starting Spotify thread");
     let q2 = tasks.clone();

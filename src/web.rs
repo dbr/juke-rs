@@ -11,8 +11,8 @@ use rouille::{router, try_or_400, websocket, Request, Response};
 use crate::client::TheList;
 use crate::commands::LockedTaskQueue;
 use crate::common::{
-    CommandResponse, CommandResponseDataType, DeviceListParams, DeviceListResult, PlaybackStatus,
-    SearchParams, SearchResult, SongRequestInfo, SpotifyCommand, TaskID,
+    CommandResponse, CommandResponseDataType, Config, DeviceListParams, DeviceListResult,
+    PlaybackStatus, SearchParams, SearchResult, SongRequestInfo, SpotifyCommand, TaskID,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -245,10 +245,11 @@ pub fn web(
     queue: LockedTaskQueue,
     global_status: Arc<RwLock<PlaybackStatus>>,
     global_queue: Arc<RwLock<TheList>>,
+    cfg: &Config,
 ) {
-    let addr = "0.0.0.0:8081";
-    info!("Listening on http://{}", addr);
-    rouille::start_server(addr, move |request| {
+    let addr = format!("{}:{}", cfg.web_host, cfg.web_port);
+    info!("Listening on http://{}", &addr);
+    rouille::start_server(&addr, move |request| {
         handle_response(request, &queue.clone(), &global_status, &global_queue)
     });
 }

@@ -5,6 +5,13 @@ use serde_derive::{Deserialize, Serialize};
 /// Shortcut for error return type
 pub type ClientResult<T> = Result<T, Error>;
 
+/// App configuration
+pub struct Config {
+    /// 0.0.0.0:8888
+    pub web_host: String,
+    pub web_port: u32,
+}
+
 /// State of the Spotify client
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum PlaybackState {
