@@ -119,7 +119,7 @@ impl Client {
             last_status_check: None,
             last_token_refresh: None,
             status: PlaybackStatus::default(),
-            status_check_interval_ms: 1000,
+            status_check_interval_ms: 2000,
             token_refresh_interval_ms: 1000 * 60 * 5,
         }
     }
