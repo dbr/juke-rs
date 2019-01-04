@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, trace};
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
@@ -177,17 +177,21 @@ fn handle_response(
             Response::json(&WebResponse::Status(s))
         },
         (GET) (/api/device/list) => {
+            trace!("Request for device list");
             let tid: TaskID = {
                 let mut q = queue.lock().unwrap();
                 let tid = q.get_task_id();
                 q.queue(SpotifyCommand::ListDevices(DeviceListParams{tid: tid}));
                 tid
             };
+            trace!("Awaiting task");
             let r = wait_for_task(&queue, tid);
+            trace!("Got task list");
             let inner = match r.value {
                 CommandResponseDataType::DeviceList(d) => WebResponse::DeviceList(d),
                 _ => WebResponse::Error(format!("Unexpected response from command in /api/device/list")),
             };
+            trace!("Responding with task list to wbe client");
             Response::json(&inner)
         },
         (GET) (/api/device/set/{id:String}) => {
