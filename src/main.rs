@@ -29,8 +29,10 @@ fn spotify_ctrl(
     let mut innerloop = || -> Result<(), Error> {
         loop {
             // Wait for commands from the web-thread
-            let mut q = queue.lock().unwrap();
-            let queue_content = q.pop();
+            let queue_content = {
+                let mut q = queue.lock().unwrap();
+                q.pop()
+            };
             if let Some(c) = queue_content {
                 trace!("Got command: {:?}", c);
                 match c {
@@ -38,9 +40,11 @@ fn spotify_ctrl(
                     SpotifyCommand::Resume => client.resume()?,
                     SpotifyCommand::Skip => client.skip()?,
                     SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
-                    SpotifyCommand::Search(sp) => client.search(&sp, &mut q)?,
+                    SpotifyCommand::Search(sp) => client.search(&sp, &mut queue.lock().unwrap())?,
                     SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),
-                    SpotifyCommand::ListDevices(lp) => client.list_devices(&lp, &mut q)?,
+                    SpotifyCommand::ListDevices(lp) => {
+                        client.list_devices(&lp, &mut queue.lock().unwrap())?
+                    }
                     SpotifyCommand::SetActiveDevice(id) => client.set_active_device(id)?,
                 };
             } else {
