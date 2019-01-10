@@ -353,6 +353,11 @@ class MainView extends React.Component {
             this.update(JSON.parse(event.data));
         }.bind(this));
         sock.addEventListener('close', function (event) {
+            console.log("Web socket disconnected");
+            this.disconnected();
+        }.bind(this));
+        sock.addEventListener('error', function (event) {
+            console.log("Web socket error");
             this.disconnected();
         }.bind(this));
 
@@ -367,6 +372,7 @@ class MainView extends React.Component {
         this.state.socket.send('queue'); // FIXME: Do this less often
     }
     disconnected() {
+        console.log("Clearing connection!");
         this.setState({ connected: CON_DISCONNECTED });
         this.setState({ "info": undefined });
     }
@@ -396,8 +402,11 @@ class MainView extends React.Component {
     }
 
     render() {
+        if (this.state.connected == CON_DISCONNECTED) {
+            return <div className="card"><div className="card-item">[Lost conneciton to server. Try <a href="/">reloading?</a>]</div></div>;
+        }
         if (this.state.status === undefined) {
-            return <div className="card">[Waiting for data]</div>;
+            return <div className="card"><div className="card-item">[Waiting for data]</div></div>;
         }
         if (this.state.status.state == 'NoAuth') {
             return <div className="card"><div className="card-item">[Need authentication!] <a href="/auth">Host must log in with Spotify!</a></div></div>;
