@@ -266,7 +266,13 @@ class SelectDevice extends React.Component {
     constructor(props) {
         super(props);
         this.state = { data: null };
-        setTimeout(this.refresh.bind(this), 0);
+    }
+    componentDidMount() {
+        this.timer = setInterval(this.refresh.bind(this), 1000);
+        this.refresh();
+    }
+    componentWillUnmount() {
+        clearInterval(this.timer);
     }
     refresh() {
         self = this;
