@@ -218,11 +218,17 @@ impl Client {
     }
 
     /// Pause playback
-    pub fn skip(&self) -> ClientResult<()> {
+    pub fn skip(&mut self) -> ClientResult<()> {
         info!("Skipping track");
-        let id = self.device.clone().and_then(|x| Some(x.id));
-        self.get_spotify()?.next_track(id)?;
-        Ok(())
+        if self.enqueue()? {
+            // Loaded next song
+            Ok(())
+        } else {
+            // No song in queue, just skip currently playing one in Spotify client
+            let id = self.device.clone().and_then(|x| Some(x.id));
+            self.get_spotify()?.next_track(id)?;
+            Ok(())
+        }
     }
 
     pub fn search(&self, params: &SearchParams, queue: &mut TaskQueue) -> ClientResult<()> {
@@ -286,14 +292,19 @@ impl Client {
         Ok(())
     }
 
-    /// Take a song from the list and make it go
-    pub fn enqueue(&mut self) -> ClientResult<()> {
+    /// Take a song from the list and make it go. Returns true if song was enqueued, false if not (e.g empty playlist)
+    pub fn enqueue(&mut self) -> ClientResult<bool> {
         if let Some(t) = self.the_list.nextup() {
             trace!("Enqueuing song");
             self.load_song(t)?;
             self.status.state = PlaybackState::EnqueuedAndWaiting; // TODO: Is this state necessary?
+
+            // Enqueued a song
+            Ok(true)
+        } else {
+            // No song in queue
+            Ok(false)
         }
-        Ok(())
     }
 
     /// Called very often, performs regular activities like checking if Spotify is ready to play next song
