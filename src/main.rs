@@ -42,10 +42,12 @@ fn spotify_ctrl(
                     SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
                     SpotifyCommand::Search(sp) => client.search(&sp, &mut queue.lock().unwrap())?,
                     SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),
+                    SpotifyCommand::ClearAuth => client.clear_auth(),
                     SpotifyCommand::ListDevices(lp) => {
                         client.list_devices(&lp, &mut queue.lock().unwrap())?
                     }
                     SpotifyCommand::SetActiveDevice(id) => client.set_active_device(id)?,
+                    SpotifyCommand::ClearDevice => client.clear_device(),
                 };
             } else {
                 // Wait for new commands

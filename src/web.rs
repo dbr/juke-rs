@@ -198,6 +198,10 @@ fn handle_response(
             queue.lock().unwrap().queue(SpotifyCommand::SetActiveDevice(id));
             Response::text("{\"result\":\"ok\"}")
         },
+        (GET) (/api/device/clear) => {
+            queue.lock().unwrap().queue(SpotifyCommand::ClearDevice);
+            Response::text("{\"result\":\"ok\"}")
+        },
         (GET) (/search/track/{term:String}) => {
             // Queue search task and drop lock
             let tid: TaskID = {
@@ -236,6 +240,13 @@ fn handle_response(
                 Response::redirect_302("/")
             } else {
                 Response::text("Missing ?code= param").with_status_code(500)
+            }
+        },
+        (GET) (/auth/destroy) => {
+            {
+                let mut q = queue.lock().unwrap();
+                q.queue(SpotifyCommand::ClearAuth);
+                Response::redirect_302("/")
             }
         },
 

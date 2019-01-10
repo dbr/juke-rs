@@ -219,7 +219,13 @@ class SearchWidget extends React.Component {
 
     render() {
         if(this.state.busy) {
-            return <div>Please wait...</div>;
+            return (
+                <div className="card">
+                    <div className="card-body">
+                        <div>Please wait...</div>
+                    </div>
+                </div>
+            );
         }
         // Format search results if any
         if (this.state.data.Search && this.state.data.Search.items.length > 0) {
@@ -368,6 +374,18 @@ class MainView extends React.Component {
     toggleSearch() {
         this.setState({ is_searching: !this.state.is_searching });
     }
+    clearDevice() {
+        if(confirm("Select new device?")) {
+            fetch("/api/device/clear");
+            this.setState({conected: CON_UNKNOWN});
+        }
+    }
+    logout() {
+        if(confirm("Are you SURE? Are you SURE?")) {
+            fetch("/auth/destroy");
+            this.setState({conected: CON_UNKNOWN});
+        }
+    }
 
     render() {
         if (this.state.status === undefined) {
@@ -412,6 +430,8 @@ class MainView extends React.Component {
                 <p></p>
                 <nav className="navbar navbar-dark bg-dark">
                     <small>Count Jukeula the Chune Maker. Powered by Spotify. Vampire by Nikita Kozin from the Noun Project</small>
+                    <small><a href="#" onClick={this.clearDevice.bind(this)}>Change device</a></small>
+                    <small><a href="#" onClick={this.logout.bind(this)}>Disconnect from Spotify</a></small>
                 </nav>
             </ErrorBoundary>
         );

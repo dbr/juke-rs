@@ -128,8 +128,10 @@ pub enum SpotifyCommand {
     Request(SongRequestInfo),
     Search(SearchParams),
     SetAuthToken(TokenInfo),
+    ClearAuth,
     ListDevices(DeviceListParams),
     SetActiveDevice(String),
+    ClearDevice,
 }
 
 /// Types of things a Spotify thread can respond to a command with

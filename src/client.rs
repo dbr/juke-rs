@@ -124,6 +124,13 @@ impl Client {
         }
     }
 
+    /// End session with Spotify
+    pub fn clear_auth(&mut self) {
+        self.spotify = None;
+        self.device = None;
+        self.status = PlaybackStatus::default();
+    }
+
     pub fn set_auth_token(&mut self, token: &TokenInfo) {
         trace!("Setting auth token");
         let client_credential = SpotifyClientCredentials::default()
@@ -188,6 +195,10 @@ impl Client {
             }
         }
         Err(format_err!("No device found with ID {}", id))
+    }
+
+    pub fn clear_device(&mut self) {
+        self.device = None;
     }
 
     /// Pause playback
