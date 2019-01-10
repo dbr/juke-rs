@@ -195,13 +195,15 @@ class SearchWidget extends React.Component {
         self = this;
         event.preventDefault();
         this.clearResults();
+        this.setState({busy: true});
 
         var u = "/search/track/" + encodeURIComponent(this.state.value);
         fetch(u).then(function (resp) {
+            this.setState({busy: false});
             return resp.json(); // FIXME: Handle error
-        }).then(function (d) {
+        }.bind(this)).then(function (d) {
             self.setState({ data: d });
-        })
+        }.bind(this));
     }
 
     play(event) {
@@ -249,7 +251,7 @@ class SearchWidget extends React.Component {
                         <label>
                             Name: <input type="text" value={this.state.value} onChange={this.handleChange} />
                         </label>
-                        <input type="submit" value="Submit" />
+                        {this.state.value.length > 0 ? <input type="submit" value="Search!" className="btn btn-success" /> : <span />}
                     </form>
                     {sr}
                     <button className="btn btn-outline-secondary" type="button" onClick={this.cancel.bind(this)}>Cancel</button>
