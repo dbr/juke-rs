@@ -230,7 +230,7 @@ impl Client {
         let start = Instant::now();
         let search = self
             .get_spotify()?
-            .search_track(&params.title, 10, 0, None)?;
+            .search_track(&params.title, 40, 0, None)?;
         let dur = start.elapsed();
         trace!("Search took {}ms", duration_as_millis(dur));
         let mut sr = vec![];
