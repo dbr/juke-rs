@@ -1,4 +1,5 @@
 use log::{info, trace};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
@@ -268,11 +269,18 @@ pub fn web(
     queue: LockedTaskQueue,
     global_status: Arc<RwLock<PlaybackStatus>>,
     global_queue: Arc<RwLock<TheList>>,
+    running: Arc<AtomicBool>,
     cfg: &Config,
 ) {
     let addr = format!("{}:{}", cfg.web_host, cfg.web_port);
     info!("Listening on http://{}", &addr);
-    rouille::start_server(&addr, move |request| {
+    let srv = rouille::Server::new(&addr, move |request| {
         handle_response(request, &queue.clone(), &global_status, &global_queue)
-    });
+    })
+    .unwrap();
+
+    while running.load(Ordering::SeqCst) {
+        srv.poll();
+        sleep(Duration::from_millis(10)); // FIXME: https://github.com/tomaka/rouille/issues/200
+    }
 }

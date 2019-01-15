@@ -1,4 +1,5 @@
 use log::{info, trace, warn};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -22,12 +23,13 @@ fn spotify_ctrl(
     queue: &LockedTaskQueue,
     global_status: &Arc<RwLock<PlaybackStatus>>,
     global_queue: &Arc<RwLock<TheList>>,
+    running: Arc<AtomicBool>,
 ) -> Result<(), Error> {
     // Create client wrapper
     let mut client = Client::new();
 
     let mut innerloop = || -> Result<(), Error> {
-        loop {
+        while running.load(Ordering::SeqCst) {
             // Wait for commands from the web-thread
             let queue_content = {
                 let mut q = queue.lock().unwrap();
@@ -68,15 +70,18 @@ fn spotify_ctrl(
                 *q = client.the_list.clone();
             }
         }
+
+        Ok(())
     };
 
-    loop {
+    while running.load(Ordering::SeqCst) {
         let r = innerloop();
         match r {
             Ok(_) => (),
             Err(e) => warn!("{:?}", e),
         }
     }
+    Ok(())
 }
 
 /// Start all threads
@@ -91,25 +96,50 @@ fn main() {
     std::env::set_var("RUST_LOG", "juke=debug");
     env_logger::init();
 
+    let running = Arc::new(AtomicBool::new(true));
+
     info!("Setup commencing");
     let status: Arc<RwLock<PlaybackStatus>> = Arc::new(RwLock::new(PlaybackStatus::default()));
 
     let tasks = Arc::new(Mutex::new(TaskQueue::new()));
     let thelist = Arc::new(RwLock::new(TheList::new()));
 
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        if r.load(Ordering::SeqCst) {
+            // Set `running` to false, stops threads
+            println!("Interrupt");
+            r.store(false, Ordering::SeqCst);
+        } else {
+            // If pressing ctrl+c twice, immediately terminate in case threads only stop
+            println!("Second interrupt, exiting");
+            std::process::exit(1);
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
+
     info!("Starting web thread");
-    let q1 = tasks.clone();
-    let s1 = status.clone();
-    let l1 = thelist.clone();
-    let w = thread::spawn(move || web(q1, s1, l1, &cfg));
+    let w = {
+        let q1 = tasks.clone();
+        let s1 = status.clone();
+        let l1 = thelist.clone();
+        let r1 = running.clone();
+        thread::spawn(move || web(q1, s1, l1, r1, &cfg))
+    };
 
     info!("Starting Spotify thread");
-    let q2 = tasks.clone();
-    let s2 = status.clone();
-    let l2 = thelist.clone();
-    let s = thread::spawn(move || spotify_ctrl(&q2, &s2, &l2));
+    let s = {
+        let q2 = tasks.clone();
+        let s2 = status.clone();
+        let l2 = thelist.clone();
+        let r2 = running.clone();
+        thread::spawn(move || spotify_ctrl(&q2, &s2, &l2, r2))
+    };
+
     s.join().unwrap().unwrap();
     w.join().unwrap();
+
+    // TODO: Save TheList etc?
 }
 
 #[cfg(test)]
