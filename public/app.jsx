@@ -318,6 +318,7 @@ class SelectDevice extends React.Component {
 }
 
 const CON_CONNECTED = 'connected';
+const CON_CONNECTING = 'connecting';
 const CON_DISCONNECTED = 'disconnected';
 const CON_UNKNOWN = 'unknown';
 
@@ -336,6 +337,16 @@ class MainView extends React.Component {
         };
     }
     componentDidMount() {
+        this.connect();
+    }
+    componentWillUnmount() {
+        if(this.timer) {
+            clearInterval(this.timer);
+        }
+    }
+    connect() {
+        this.setState({ connected: CON_CONNECTING });
+
         // Create connection for live stuff
         const sock_url = ((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/ws";
         const sock = new WebSocket(sock_url, "juke");
@@ -345,6 +356,8 @@ class MainView extends React.Component {
             // Set state, and request initial update
             this.setState({ connected: CON_CONNECTED });
             this.refresh();
+            // Routine update
+            this.timer = setInterval(this.refresh.bind(this), STATUS_UPDATE_INTERVAL_MS);
         }.bind(this));
         sock.addEventListener('message', function (event) {
             this.update(JSON.parse(event.data));
@@ -357,12 +370,6 @@ class MainView extends React.Component {
             console.log("Web socket error");
             this.disconnected();
         }.bind(this));
-
-        // Routine update
-        this.timer = setInterval(this.refresh.bind(this), STATUS_UPDATE_INTERVAL_MS);
-    }
-    componentWillUnmount() {
-        clearInterval(this.timer);
     }
     refresh() {
         this.state.socket.send('status');
@@ -400,7 +407,10 @@ class MainView extends React.Component {
 
     render() {
         if (this.state.connected == CON_DISCONNECTED) {
-            return <div className="card"><div className="card-item">[Lost conneciton to server. Try <a href="/">reloading?</a>]</div></div>;
+            return <div className="card"><div className="card-item">
+                Lost connection to server.
+                <a href="#" onClick={this.connect.bind(this)}>Reconnect?</a>
+            </div></div>;
         }
         if (this.state.status === undefined) {
             return <div className="card"><div className="card-item">[Waiting for data]</div></div>;
