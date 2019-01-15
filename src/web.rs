@@ -97,7 +97,7 @@ fn generate_random_string(length: usize) -> String {
         .collect()
 }
 
-static CONTENT_INDEX: &'static str = include_str!("../public/index.html");
+static CONTENT_INDEX: &'static str = include_str!("../static/index.html");
 
 fn handle_response(
     request: &Request,
@@ -111,25 +111,25 @@ fn handle_response(
             if &request.url() == "/thejuke.png" {
                 return Response::from_data(
                     "image/png",
-                    include_bytes!("../public/thejuke.png").to_vec(),
+                    include_bytes!("../static/thejuke.png").to_vec(),
                 );
             };
             let x = match request.url().as_ref() {
-                "/app.jsx" => Some((include_str!("../public/app.jsx"), "application/javascript")),
+                "/app.jsx" => Some((include_str!("../static/app.jsx"), "application/javascript")),
                 "/babel.min.js" => Some((
-                    include_str!("../public/babel.min.js"),
+                    include_str!("../static/babel.min.js"),
                     "application/javascript",
                 )),
                 "/react-dom.production.min.js" => Some((
-                    include_str!("../public/react-dom.production.min.js"),
+                    include_str!("../static/react-dom.production.min.js"),
                     "application/javascript",
                 )),
                 "/react.production.min.js" => Some((
-                    include_str!("../public/react.production.min.js"),
+                    include_str!("../static/react.production.min.js"),
                     "application/javascript",
                 )),
                 "/bootstrap.min.css" => {
-                    Some((include_str!("../public/bootstrap.min.css"), "text/css"))
+                    Some((include_str!("../static/bootstrap.min.css"), "text/css"))
                 }
                 _ => None,
             };
@@ -139,7 +139,7 @@ fn handle_response(
             };
         } else {
             // In debug build, read assets from folder for reloadability
-            return rouille::match_assets(&request, "public");
+            return rouille::match_assets(&request, "static");
         }
     }
 
