@@ -64,11 +64,8 @@ class PlaybackStatus extends React.Component {
         fetch("/api/skip");
     }
     render() {
-        if (this.props.status === undefined || this.props.status.song === null || this.props.status.progress_ms === null) {
-            return <div className="card">[Waiting for data]</div>;
-        }
-
-        if (this.props.status.state == 'NeedsSong') {
+        if (this.props.status === undefined || this.props.status.song === null || this.props.status.progress_ms === null
+            || this.props.status.state == 'NeedsSong') {
             return (
             <div className="card">
                 <img src="/static/thejuke.png" className="card-img-top" width="286px" alt="Album artwork" style={{background: "black"}} />
