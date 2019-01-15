@@ -31,9 +31,11 @@ enum MaybeWebResponse {
     Response(WebResponse),
 }
 
+/// Wait for given task ID
 fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
-    loop {
-        // TODO: Timeout?
+    let duration_ms = 15_000;
+    let step = 100;
+    for _ in 0..(duration_ms / step) {
         {
             let response = queue.lock().unwrap().wait(tid);
             if let Some(r) = response {
@@ -42,7 +44,13 @@ fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
             // Drop lock
         }
 
-        sleep(Duration::from_millis(100));
+        sleep(Duration::from_millis(step));
+    }
+
+    // Waited too long
+    CommandResponse {
+        tid: tid,
+        value: CommandResponseDataType::Error("Timed out".into()),
     }
 }
 

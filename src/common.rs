@@ -139,6 +139,7 @@ pub enum SpotifyCommand {
 pub enum CommandResponseDataType {
     Search(SearchResult),
     DeviceList(DeviceListResult),
+    Error(String),
 }
 
 /// Spotify commands can respond with this type
