@@ -61,12 +61,14 @@ fn spotify_ctrl(
             // Update global status object if needed
             if *global_status.read().unwrap() != client.status {
                 // TODO: Is this even necessary, could it just update always?
+                trace!("Updating global status");
                 let mut s = global_status.write().unwrap();
                 *s = client.status.clone();
             }
 
             if *global_queue.read().unwrap() != client.the_list {
                 // TODO: Is this even necessary, could it just update always?
+                trace!("Updating global queue");
                 let mut q = global_queue.write().unwrap();
                 *q = client.the_list.clone();
             }

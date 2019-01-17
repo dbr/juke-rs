@@ -383,7 +383,9 @@ impl Client {
                 }
             }
         }
+
         {
+            // Auth token refresh check
             let time_for_refresh = if let Some(rt) = self.last_token_refresh {
                 let x = rt.elapsed()?;
                 duration_as_millis(x) > self.token_refresh_interval_ms.into()
