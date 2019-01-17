@@ -84,6 +84,12 @@ impl TheList {
     }
 }
 
+impl Drop for TheList {
+    fn drop(&mut self) {
+        trace!("Dropping the list!");
+    }
+}
+
 /// Handles playback/queue logic and commands Spotify
 pub struct Client {
     spotify: Option<Spotify>,
@@ -94,6 +100,7 @@ pub struct Client {
     pub status: PlaybackStatus,
     status_check_interval_ms: u32,
     token_refresh_interval_ms: u32,
+    skip_votes: u32,
 }
 
 /// Convert `Duration` into milliseconds (as u64), to be used until
@@ -146,6 +153,7 @@ impl Client {
             status: PlaybackStatus::default(),
             status_check_interval_ms: 1000,
             token_refresh_interval_ms: 1000 * 60 * 5,
+            skip_votes: 0,
         }
     }
 
@@ -244,14 +252,22 @@ impl Client {
 
     /// Pause playback
     pub fn skip(&mut self) -> ClientResult<()> {
-        info!("Skipping track");
-        if self.enqueue()? {
-            // Loaded next song
-            Ok(())
+        info!("Track skip requested");
+        self.skip_votes += 1;
+
+        if self.skip_votes >= 2 {
+            trace!("Skip vote success");
+            if self.enqueue()? {
+                // Loaded next song
+                Ok(())
+            } else {
+                // No song in queue, just skip currently playing one in Spotify client
+                let id = self.device.clone().and_then(|x| Some(x.id));
+                self.get_spotify()?.next_track(id)?;
+                Ok(())
+            }
         } else {
-            // No song in queue, just skip currently playing one in Spotify client
-            let id = self.device.clone().and_then(|x| Some(x.id));
-            self.get_spotify()?.next_track(id)?;
+            trace!("Not enough skip votes yet, {}", self.skip_votes);
             Ok(())
         }
     }
@@ -326,6 +342,9 @@ impl Client {
 
     /// Take a song from the list and make it go. Returns true if song was enqueued, false if not (e.g empty playlist)
     pub fn enqueue(&mut self) -> ClientResult<bool> {
+        trace!("Reset skip votes to zero (next song enqueued)");
+        self.skip_votes = 0;
+
         if let Some(t) = self.the_list.nextup() {
             trace!("Enqueuing song");
             self.load_song(t)?;
