@@ -53,6 +53,30 @@ function formatDuration(time) {
     return ret;
 }
 
+class ButtonDebounce extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {disabled: false};
+    }
+    invoked() {
+        if(this.state.disabled) {
+            console.log("Ignoring for now..");
+        } else {
+            console.log("Button invoked");
+            this.props.callback();
+            this.setState({disabled: true});
+            setTimeout(function(){this.setState({disabled: false})}.bind(this), 10000);
+        }
+    }
+    render() {
+        return (
+            <button className={this.props.className + (this.state.disabled ? " disabled" : "")} onClick={this.invoked.bind(this)}>
+                {this.props.content}
+            </button>
+        );
+    }
+}
+
 class PlaybackStatus extends React.Component {
     resume() {
         fetch("/api/resume");
@@ -64,6 +88,8 @@ class PlaybackStatus extends React.Component {
         fetch("/api/skip");
     }
     render() {
+        var skip_button = <ButtonDebounce className="btn btn-danger" callback={this.skip} content="Skip!"></ButtonDebounce>;
+
         if (this.props.status === undefined || this.props.status.song === null || this.props.status.progress_ms === null
             || this.props.status.state == 'NeedsSong') {
             return (
@@ -76,7 +102,7 @@ class PlaybackStatus extends React.Component {
                 <div className="card-body">
                     <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
                     <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
-                    <button className="btn btn-danger" onClick={this.skip}>Skip</button>
+                    {skip_button}
                 </div>
             </div>
             );
@@ -100,7 +126,7 @@ class PlaybackStatus extends React.Component {
                 <div className="card-body">
                     <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
                     <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
-                    <button className="btn btn-danger" onClick={this.skip}>Skip</button>
+                    {skip_button}
                     <h5 className="card-title">{this.props.status.song.title}</h5>
                     <p className="card-text">{this.props.status.song.artist}</p>
                     <p><small> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
@@ -135,8 +161,8 @@ class UpcomingListItem extends React.Component {
                 <img src={this.props.song.album_image_url} className="mr-3" alt="Album art" width="32px" />
                 <b>{this.props.song.title}</b> by <b>{this.props.song.artist}</b>
                 <div className="float-right">
-                    <button className="small primary" onClick={this.upvote.bind(this)}>+1</button>
-                    <button className="small secondary" onClick={this.downvote.bind(this)}>Booo</button>
+                    <ButtonDebounce className="btn btn-primary btn-sm" callback={this.upvote.bind(this)} content="+1"></ButtonDebounce>
+                    <ButtonDebounce className="btn btn-danger btn-sm" callback={this.downvote.bind(this)} content="-1"></ButtonDebounce>
                 </div>
 
             </li>
