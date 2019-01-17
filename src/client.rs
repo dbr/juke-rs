@@ -32,7 +32,10 @@ impl TheList {
     fn add(&mut self, track_id: BasicSongInfo) {
         debug!("Added song {:?}", track_id);
         let key = &track_id.spotify_uri;
-        self.votes.entry(key.clone()).or_insert(0);
+        self.votes
+            .entry(key.clone())
+            .and_modify(|x| *x += 1)
+            .or_insert(1);
         self.songs.entry(key.clone()).or_insert(track_id);
         trace!("The list after: {:?}", self);
     }
