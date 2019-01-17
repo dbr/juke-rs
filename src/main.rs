@@ -42,6 +42,7 @@ fn spotify_ctrl(
                     SpotifyCommand::Resume => client.resume()?,
                     SpotifyCommand::Skip => client.skip()?,
                     SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
+                    SpotifyCommand::Downvote(ri) => client.downvote(ri.track_id)?,
                     SpotifyCommand::Search(sp) => client.search(&sp, &mut queue.lock().unwrap())?,
                     SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),
                     SpotifyCommand::ClearAuth => client.clear_auth(),

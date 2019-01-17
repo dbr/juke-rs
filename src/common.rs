@@ -126,6 +126,7 @@ pub enum SpotifyCommand {
     Pause,
     Skip,
     Request(SongRequestInfo),
+    Downvote(SongRequestInfo),
     Search(SearchParams),
     SetAuthToken(TokenInfo),
     ClearAuth,

@@ -111,14 +111,32 @@ class PlaybackStatus extends React.Component {
 }
 
 class UpcomingListItem extends React.Component {
+    downvote() {
+        console.log("Downvoting", this.props.song);
+        var u = "/api/downvote/" + encodeURIComponent(this.props.song.spotify_uri);
+        fetch(u).then(function (resp) {
+            return resp.json(); // FIXME: Handle error
+        }.bind(this)).then(function (d) {
+            console.log(d);
+        }.bind(this));
+    }
+    upvote() {
+        console.log("Upvoting", this.props.song);
+        var u = "/api/request/" + encodeURIComponent(this.props.song.spotify_uri); // TODO: Specific upvote API?
+        fetch(u).then(function (resp) {
+            return resp.json(); // FIXME: Handle error
+        }.bind(this)).then(function (d) {
+            console.log(d);
+        }.bind(this));
+    }
     render() {
         return (
             <li className="list-group-item">
                 <img src={this.props.song.album_image_url} className="mr-3" alt="Album art" width="32px" />
                 <b>{this.props.song.title}</b> by <b>{this.props.song.artist}</b>
                 <div className="float-right">
-                    <button className="small primary">+1</button>
-                    <button className="small secondary">Booo</button>
+                    <button className="small primary" onClick={this.upvote.bind(this)}>+1</button>
+                    <button className="small secondary" onClick={this.downvote.bind(this)}>Booo</button>
                 </div>
 
             </li>

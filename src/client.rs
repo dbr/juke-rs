@@ -34,6 +34,28 @@ impl TheList {
         let key = &track_id.spotify_uri;
         self.votes.entry(key.clone()).or_insert(0);
         self.songs.entry(key.clone()).or_insert(track_id);
+        trace!("The list after: {:?}", self);
+    }
+
+    fn downvote(&mut self, track_id: String) {
+        debug!("Downvoting song with ID {}", &track_id);
+        self.votes.entry(track_id.clone()).and_modify(|e| *e -= 1);
+        if let Some(c) = self.votes.get(&track_id) {
+            if *c < -1 {
+                debug!(
+                    "Going to remove song from list because it now has {} votes",
+                    c
+                );
+                self.votes.remove(&track_id);
+                self.songs.remove(&track_id);
+            }
+        }
+        if let Entry::Occupied(o) = self.votes.entry(track_id.clone()) {
+            if *o.get() < -1 {
+                o.remove();
+            }
+        }
+        trace!("The list after: {:?}", self);
     }
 
     fn nextup(&mut self) -> Option<BasicSongInfo> {
@@ -280,6 +302,13 @@ impl Client {
         let track = c.track(&track_id)?;
         let x: BasicSongInfo = track.into();
         self.the_list.add(x);
+        Ok(())
+    }
+
+    /// Reverse a request for song, possibly removing it from the queue
+    pub fn downvote(&mut self, track_id: String) -> ClientResult<()> {
+        debug!("Downvoted song {}", track_id);
+        self.the_list.downvote(track_id);
         Ok(())
     }
 
