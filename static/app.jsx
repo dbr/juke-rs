@@ -355,6 +355,7 @@ class SelectDevice extends React.Component {
                 <div className="card-body">
                     <h2>Select playback device</h2>
                     {sr}
+                    <p>Or, <a href="#" onClick={this.props.logout.bind(this)}>disconnect from Spotify/change account</a></p>
                 </div>
             </div>
         );
@@ -460,10 +461,14 @@ class MainView extends React.Component {
             return <div className="card"><div className="card-item">[Waiting for data]</div></div>;
         }
         if (this.state.status.state == 'NoAuth') {
-            return <div className="card"><div className="card-item">[Need authentication!] <a href="/auth">Host must log in with Spotify!</a></div></div>;
+            return <div className="card">
+                <div className="card-item">
+                    <h2>Need authentication!</h2>
+                    <p><a href="/auth">Host must log in with Spotify!</a></p>
+            </div></div>;
         }
         if (this.state.status.state == 'NoDevice') {
-            return <SelectDevice />;
+            return <SelectDevice logout={this.logout.bind(this)} />;
         }
 
         if (this.state.is_searching) {
