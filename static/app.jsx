@@ -281,8 +281,10 @@ class SearchWidget extends React.Component {
                         </a>
                     </li>)}
             </ul>
-        } else {
+        } else if (this.state.data.Search) {
             var sr = <div>No results found</div>;
+        } else {
+            var sr = <span></span>;
         }
         // Main form + results
         return (
