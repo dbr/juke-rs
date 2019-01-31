@@ -63,9 +63,16 @@ impl TheList {
 
     fn nextup(&mut self) -> Option<BasicSongInfo> {
         // TODO: This method can probably be simplified
+        let highest_vote_value = {
+            let mut sorted: Vec<(&String, &i64)> = self.votes.iter().collect();
+            sorted.sort_by(|a, b| b.1.cmp(a.1));
+            sorted.first()?.1
+        };
+
         let hm = {
+            let highest_voted = { self.votes.iter().filter(|k| k.1 == highest_vote_value) };
             let mut rng = rand::thread_rng();
-            let keys: Vec<&String> = self.votes.keys().collect();
+            let keys: Vec<&String> = highest_voted.map(|x| x.0).collect();
             let hm = keys.choose(&mut rng)?;
             hm.clone()
         };
