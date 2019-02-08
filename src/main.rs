@@ -96,7 +96,7 @@ fn main() {
             .parse::<u32>()
             .expect("Malformed $PORT value"),
     };
-    std::env::set_var("RUST_LOG", "juke=trace");
+    std::env::set_var("RUST_LOG", "juke=debug");
     env_logger::init();
 
     let running = Arc::new(AtomicBool::new(true));
