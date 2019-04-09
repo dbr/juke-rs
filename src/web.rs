@@ -207,7 +207,7 @@ fn handle_response(
                 CommandResponseDataType::DeviceList(d) => WebResponse::DeviceList(d),
                 _ => WebResponse::Error(format!("Unexpected response from command in /api/device/list")),
             };
-            trace!("Responding with task list to wbe client");
+            trace!("Responding with task list to web client");
             Response::json(&inner)
         },
         (GET) (/api/device/set/{id:String}) => {
