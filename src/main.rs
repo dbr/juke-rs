@@ -144,28 +144,3 @@ fn main() {
 
     // TODO: Save TheList etc?
 }
-
-#[cfg(test)]
-mod tests {
-    use super::main;
-    use std::thread;
-
-    #[test]
-    fn test_basic() {
-        let _t = thread::spawn(main);
-        let mut resp =
-            reqwest::get("http://localhost:8081/search/track/The Dodos Walking").unwrap();
-        assert!(resp.status().is_success());
-        let data: crate::web::WebResponse = resp.json().unwrap();
-        println!("{:?}", data);
-        if let crate::web::WebResponse::Search(s) = data {
-            // Check more than one result, and that all contain the word "dodos"
-            assert!(s.items.len() > 0);
-            assert!(s
-                .items
-                .iter()
-                .map(|x| format!("{} {}", x.title, x.artist))
-                .any(|x| x.to_lowercase().contains("dodo")));
-        }
-    }
-}
