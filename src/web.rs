@@ -16,20 +16,20 @@ use crate::common::{
     PlaybackStatus, SearchParams, SearchResult, SongRequestInfo, SpotifyCommand, TaskID,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum WebResponse {
+#[derive(Debug, Serialize)]
+pub enum WebResponse<'a> {
     Success,
     Status(PlaybackStatus),
     Search(SearchResult),
-    Queue(TheList),
+    Queue(&'a TheList),
     DeviceList(DeviceListResult),
     Error(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-enum MaybeWebResponse {
+#[derive(Debug, Serialize)]
+enum MaybeWebResponse<'a> {
     Error(String),
-    Response(WebResponse),
+    Response(WebResponse<'a>),
 }
 
 /// Wait for given task ID
@@ -72,8 +72,8 @@ fn websocket_handling_thread(
                     let t = serde_json::to_string(&info).unwrap();
                     websocket.send_text(&t).unwrap();
                 } else if txt == "queue" {
-                    let q = global_queue.read().unwrap().clone();
-                    let info = WebResponse::Queue(q);
+                    let q = global_queue.read().unwrap();
+                    let info = WebResponse::Queue(&q);
                     let t = serde_json::to_string(&info).unwrap();
                     websocket.send_text(&t).unwrap();
                 } else {
@@ -85,6 +85,7 @@ fn websocket_handling_thread(
             websocket::Message::Binary(_) => (),
         }
     }
+    trace!("Web socket connection ended");
 }
 
 fn generate_random_string(length: usize) -> String {
