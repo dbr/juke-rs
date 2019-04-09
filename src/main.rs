@@ -122,7 +122,7 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     info!("Starting web thread");
-    let w = {
+    let thread_web = {
         let q1 = tasks.clone();
         let s1 = status.clone();
         let l1 = thelist.clone();
@@ -131,7 +131,7 @@ fn main() {
     };
 
     info!("Starting Spotify thread");
-    let s = {
+    let thread_spotify = {
         let q2 = tasks.clone();
         let s2 = status.clone();
         let l2 = thelist.clone();
@@ -139,8 +139,8 @@ fn main() {
         thread::spawn(move || spotify_ctrl(&q2, &s2, &l2, r2))
     };
 
-    s.join().unwrap().unwrap();
-    w.join().unwrap();
+    thread_spotify.join().unwrap().unwrap();
+    thread_web.join().unwrap();
 
     // TODO: Save TheList etc?
 }
