@@ -84,6 +84,7 @@ fn websocket_handling_thread(
             }
             websocket::Message::Binary(_) => (),
         }
+        sleep(Duration::from_millis(10))
     }
     trace!("Web socket connection ended");
 }
