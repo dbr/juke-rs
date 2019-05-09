@@ -146,22 +146,12 @@ class UpcomingListItem extends React.Component {
             console.log(d);
         }.bind(this));
     }
-    upvote() {
-        console.log("Upvoting", this.props.song);
-        var u = "/api/request/" + encodeURIComponent(this.props.song.spotify_uri); // TODO: Specific upvote API?
-        fetch(u).then(function (resp) {
-            return resp.json(); // FIXME: Handle error
-        }.bind(this)).then(function (d) {
-            console.log(d);
-        }.bind(this));
-    }
     render() {
         return (
             <li className="list-group-item">
                 <img src={this.props.song.album_image_url} className="mr-3" alt="Album art" width="32px" />
                 <b>{this.props.song.title}</b> by <b>{this.props.song.artist}</b>
                 <div className="float-right">
-                    <ButtonDebounce className="btn btn-primary btn-sm" callback={this.upvote.bind(this)} content="+1"></ButtonDebounce>
                     <ButtonDebounce className="btn btn-danger btn-sm" callback={this.downvote.bind(this)} content="-1"></ButtonDebounce>
                 </div>
 

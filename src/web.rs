@@ -183,11 +183,6 @@ fn handle_response(
             queue.lock().unwrap().queue(SpotifyCommand::Request(SongRequestInfo{track_id: track_id}));
             Response::json(&WebResponse::Success)
         },
-        (GET) (/api/downvote/{track_id:String}) => {
-            // Downvote (and possibly remove) song from queue
-            queue.lock().unwrap().queue(SpotifyCommand::Downvote(SongRequestInfo{track_id: track_id}));
-            Response::json(&WebResponse::Success)
-        },
 
         (GET) (/api/status) => {
             let s = global_status.read().unwrap().clone();
