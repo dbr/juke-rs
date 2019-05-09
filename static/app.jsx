@@ -211,6 +211,7 @@ class SearchWidget extends React.Component {
     }
     componentDidMount() {
         document.addEventListener("keydown", this.escFunction.bind(this), false);
+        this.searchInput.focus();
     }
     componentWillUnmount() {
         document.removeEventListener("keydown", this.escFunction.bind(this), false);
@@ -282,7 +283,7 @@ class SearchWidget extends React.Component {
                 <div className="card-body">
                     <form onSubmit={this.handleSubmit}>
                         <label>
-                            Name: <input type="text" value={this.state.value} onChange={this.handleChange} />
+                            Name: <input type="text" value={this.state.value} onChange={this.handleChange} ref={(input) => { this.searchInput = input; }} />
                         </label>
                         {this.state.value.length > 0 ? <input type="submit" value="Search!" className="btn btn-success" /> : <span />}
                     </form>
