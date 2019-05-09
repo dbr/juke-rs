@@ -178,6 +178,12 @@ fn handle_response(
             Response::json(&WebResponse::Success)
         },
 
+        (GET) (/api/downvote/{track_id:String}) => {
+            // Downvote (and possibly remove) song from queue
+            queue.lock().unwrap().queue(SpotifyCommand::Downvote(SongRequestInfo{track_id: track_id}));
+            Response::json(&WebResponse::Success)
+        },
+
         (GET) (/api/request/{track_id:String}) => {
             // Add song to the list
             queue.lock().unwrap().queue(SpotifyCommand::Request(SongRequestInfo{track_id: track_id}));
