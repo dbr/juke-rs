@@ -174,8 +174,9 @@ fn handle_response(
         },
         (GET) (/api/skip) => {
             // Skip song
-            queue.lock().unwrap().queue(SpotifyCommand::Skip);
-            Response::json(&WebResponse::Success)
+            Response::text("stop it..").with_status_code(500)
+            //queue.lock().unwrap().queue(SpotifyCommand::Skip);
+            //Response::json(&WebResponse::Success)
         },
 
         (GET) (/api/downvote/{track_id:String}) => {
