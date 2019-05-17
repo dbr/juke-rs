@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
 
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Serialize;
 use serde_json;
 
 use rouille::{router, try_or_400, websocket, Request, Response};
