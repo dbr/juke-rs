@@ -324,6 +324,9 @@ impl Client {
         let c = self.get_spotify()?;
         let track = c.track(&track_id)?;
         let x: BasicSongInfo = track.into();
+        if x.title.to_lowercase().contains("scatman") || x.title.to_lowercase().contains("freestyler") {
+            return Ok(());
+        }
         self.the_list.add(x);
         Ok(())
     }
