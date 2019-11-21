@@ -399,10 +399,12 @@ class MainView extends React.Component {
         sock.addEventListener('close', function (event) {
             console.log("Web socket disconnected");
             this.disconnected();
+            clearInterval(this.timer);
         }.bind(this));
         sock.addEventListener('error', function (event) {
             console.log("Web socket error");
             this.disconnected();
+            clearInterval(this.timer);
         }.bind(this));
     }
     refresh() {
