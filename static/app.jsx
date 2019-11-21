@@ -151,10 +151,6 @@ class UpcomingListItem extends React.Component {
             <li className="list-group-item">
                 <img src={this.props.song.album_image_url} className="mr-3" alt="Album art" width="32px" />
                 <b>{this.props.song.title}</b> by <b>{this.props.song.artist}</b>
-                <div className="float-right">
-                    <ButtonDebounce className="btn btn-danger btn-sm" callback={this.downvote.bind(this)} content="Skip"></ButtonDebounce>
-                </div>
-
             </li>
         );
     }
