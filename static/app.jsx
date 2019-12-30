@@ -90,7 +90,7 @@ class PlaybackStatus extends React.Component {
     render() {
         var skip_button = <ButtonDebounce className="btn btn-danger" callback={this.skip} content="Skip!"></ButtonDebounce>;
 
-        if (this.props.status === undefined || this.props.status.song === null || this.props.status.progress_ms === null
+        if (this.props.status === undefined || this.props.status.song === null
             || this.props.status.state == 'NeedsSong') {
             return (
             <div className="card">
@@ -292,65 +292,6 @@ class SearchWidget extends React.Component {
 }
 
 
-class SelectDevice extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { data: null };
-    }
-    componentDidMount() {
-        this.timer = setInterval(this.refresh.bind(this), 1000);
-        this.refresh();
-    }
-    componentWillUnmount() {
-        clearInterval(this.timer);
-    }
-    refresh() {
-        self = this;
-        var u = "/api/device/list";
-        fetch(u).then(function (resp) {
-            return resp.json(); // FIXME: Handle error
-        }).then(function (d) {
-            self.setState({ data: d });
-        })
-    }
-
-    setActive(event) {
-        event.preventDefault();
-        let id = event.currentTarget.dataset.id;
-        var u = "/api/device/set/" + encodeURIComponent(id);
-        fetch(u).then(function (resp) {
-            return resp.json(); // FIXME: Handle error
-        }.bind(this)).then(function (d) {
-            console.log(d);
-        }.bind(this));
-    }
-
-    render() {
-        // Format search results if any
-        if (this.state.data && this.state.data.DeviceList && this.state.data.DeviceList.items.length > 0) {
-            var sr = <ul className="list-group">
-                {this.state.data.DeviceList.items.map(
-                    (x) => <li className="list-group-item" key={x.id}>
-                        <a href="#" onClick={this.setActive.bind(this)} data-id={x.id}>
-                            Play on <b>{x.name}</b>
-                        </a>
-                    </li>)}
-            </ul>
-        } else {
-            var sr = <div>No active devices - ensure a desktop Spotify client is running and online</div>;
-        }
-        return (
-            <div className="card">
-                <div className="card-body">
-                    <h2>Select playback device</h2>
-                    {sr}
-                    <p>Or, <a href="#" onClick={this.props.logout.bind(this)}>disconnect from Spotify/change account</a></p>
-                </div>
-            </div>
-        );
-    }
-}
-
 const CON_CONNECTED = 'connected';
 const CON_CONNECTING = 'connecting';
 const CON_DISCONNECTED = 'disconnected';
@@ -417,6 +358,7 @@ class MainView extends React.Component {
         this.setState({ "info": undefined });
     }
     update(data) {
+        console.log("Updating with data", data);
         if ("Status" in data) {
             this.setState({ status: data.Status });
         } else if ("Queue" in data) {
@@ -427,12 +369,6 @@ class MainView extends React.Component {
     }
     toggleSearch() {
         this.setState({ is_searching: !this.state.is_searching });
-    }
-    clearDevice() {
-        if(confirm("Select new device?")) {
-            fetch("/api/device/clear");
-            this.setState({conected: CON_UNKNOWN});
-        }
     }
     logout() {
         if(confirm("Are you SURE? Are you SURE?")) {
@@ -451,6 +387,7 @@ class MainView extends React.Component {
         if (this.state.status === undefined) {
             return <div className="card"><div className="card-item">[Waiting for data]</div></div>;
         }
+        /*
         if (this.state.status.state == 'NoAuth') {
             return <div className="card">
                 <div className="card-item">
@@ -458,9 +395,7 @@ class MainView extends React.Component {
                     <p><a href="/auth">Host must log in with Spotify!</a></p>
             </div></div>;
         }
-        if (this.state.status.state == 'NoDevice') {
-            return <SelectDevice logout={this.logout.bind(this)} />;
-        }
+        */
 
         if (this.state.is_searching) {
             var body = (
@@ -494,8 +429,7 @@ class MainView extends React.Component {
                 <p></p>
                 <nav className="navbar navbar-dark bg-dark">
                     <small>Count Jukeula the Chune Maker. Powered by Spotify. Vampire by Nikita Kozin from the Noun Project</small>
-                    <small><a href="#" onClick={this.clearDevice.bind(this)}>Change device</a></small>
-                    <small><a href="#" onClick={this.logout.bind(this)}>Disconnect from Spotify</a></small>
+                    <small><a href="/auth">Log in</a></small>
                 </nav>
             </ErrorBoundary>
         );

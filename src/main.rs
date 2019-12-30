@@ -11,11 +11,13 @@ use failure::Error;
 mod client;
 mod commands;
 mod common;
+mod player;
 mod web;
 
 use crate::client::{Client, TheList};
 use crate::commands::{LockedTaskQueue, TaskQueue};
 use crate::common::*;
+use crate::player::player;
 use crate::web::web;
 
 /// Spotify commander thread
@@ -38,39 +40,24 @@ fn spotify_ctrl(
             if let Some(c) = queue_content {
                 trace!("Got command: {:?}", c);
                 match c {
-                    SpotifyCommand::Pause => client.pause()?,
-                    SpotifyCommand::Resume => client.resume()?,
-                    SpotifyCommand::Skip => client.skip()?,
-                    SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
-                    SpotifyCommand::Downvote(ri) => client.downvote(ri.track_id)?,
+                    SpotifyCommand::Pause => (),
+                    SpotifyCommand::Resume => (),
+                    SpotifyCommand::Skip => (),
+                    SpotifyCommand::Request(ri) => {
+                        client.request(ri.track_id, &mut queue.lock().unwrap())?
+                    }
+                    SpotifyCommand::Enqueue(si) => {
+                        let mut gq = global_queue.write().unwrap();
+                        gq.add(si);
+                    }
                     SpotifyCommand::Search(sp) => client.search(&sp, &mut queue.lock().unwrap())?,
                     SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),
                     SpotifyCommand::ClearAuth => client.clear_auth(),
-                    SpotifyCommand::ListDevices(lp) => {
-                        client.list_devices(&lp, &mut queue.lock().unwrap())?
-                    }
-                    SpotifyCommand::SetActiveDevice(id) => client.set_active_device(id)?,
-                    SpotifyCommand::ClearDevice => client.clear_device(),
                 };
             } else {
                 // Wait for new commands
                 sleep(Duration::from_millis(50));
                 client.routine()?;
-            }
-
-            // Update global status object if needed
-            if *global_status.read().unwrap() != client.status {
-                // TODO: Is this even necessary, could it just update always?
-                trace!("Updating global status");
-                let mut s = global_status.write().unwrap();
-                *s = client.status.clone();
-            }
-
-            if *global_queue.read().unwrap() != client.the_list {
-                // TODO: Is this even necessary, could it just update always?
-                trace!("Updating global queue");
-                let mut q = global_queue.write().unwrap();
-                *q = client.the_list.clone();
             }
         }
 
@@ -96,13 +83,16 @@ fn main() {
             .parse::<u32>()
             .expect("Malformed $PORT value"),
     };
-    std::env::set_var("RUST_LOG", "juke=debug");
+    std::env::set_var("RUST_LOG", "juke=trace");
     env_logger::init();
 
     let running = Arc::new(AtomicBool::new(true));
 
     info!("Setup commencing");
-    let status: Arc<RwLock<PlaybackStatus>> = Arc::new(RwLock::new(PlaybackStatus::default()));
+    let status: Arc<RwLock<PlaybackStatus>> = Arc::new(RwLock::new(PlaybackStatus {
+        state: PlaybackState::NoAuth,
+        ..PlaybackStatus::default()
+    }));
 
     let tasks = Arc::new(Mutex::new(TaskQueue::new()));
     let thelist = Arc::new(RwLock::new(TheList::new()));
@@ -120,6 +110,13 @@ fn main() {
         }
     })
     .expect("Error setting Ctrl-C handler");
+
+    info!("Starting player thread");
+    let thread_player = {
+        let l1 = thelist.clone();
+        let gs = status.clone();
+        thread::spawn(move || player(&l1, &gs))
+    };
 
     info!("Starting web thread");
     let thread_web = {
@@ -139,6 +136,7 @@ fn main() {
         thread::spawn(move || spotify_ctrl(&q2, &s2, &l2, r2))
     };
 
+    thread_player.join().unwrap().unwrap();
     thread_spotify.join().unwrap().unwrap();
     thread_web.join().unwrap();
 

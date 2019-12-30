@@ -1,23 +1,27 @@
 [package]
-name = "juke"
-version = "0.1.0"
 authors = ["dbr <dbr.onix@gmail.com>"]
 edition = "2018"
-
+name = "juke"
+version = "0.1.0"
 [dependencies]
-rspotify = "0.4"
-failure = "0.1"
-rouille = "3"
-rand = "0.6.4"
-serde = "*"
-serde_json = "*"
-serde_derive = "*"
-log = "0"
-env_logger = "0"
 ctrlc = "3.1"
-
-[patch.crates-io]
-rouille = { git = 'https://github.com/dbr/rouille', branch = 'wscpu' }
+env_logger = "0"
+failure = "0.1"
+librespot = "*"
+log = "0"
+rand = "0.6.4"
+rouille = "3"
+rspotify = "0.4"
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+tokio-core = "*"
 
 [dev-dependencies]
 reqwest = "0.9.5"
+
+[patch]
+[patch.crates-io]
+[patch.crates-io.rouille]
+branch = "wscpu"
+git = "https://github.com/dbr/rouille"

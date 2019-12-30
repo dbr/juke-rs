@@ -109,16 +109,6 @@ pub struct Device {
     id: String,
 }
 
-#[derive(Debug)]
-pub struct DeviceListParams {
-    pub tid: TaskID,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DeviceListResult {
-    pub items: Vec<rspotify::spotify::model::device::Device>,
-}
-
 /// Things web-server can ask Spotify thread to do
 #[derive(Debug)]
 pub enum SpotifyCommand {
@@ -126,20 +116,16 @@ pub enum SpotifyCommand {
     Pause,
     Skip,
     Request(SongRequestInfo),
-    Downvote(SongRequestInfo),
+    Enqueue(BasicSongInfo),
     Search(SearchParams),
     SetAuthToken(TokenInfo),
     ClearAuth,
-    ListDevices(DeviceListParams),
-    SetActiveDevice(String),
-    ClearDevice,
 }
 
 /// Types of things a Spotify thread can respond to a command with
 #[derive(Debug, Serialize)]
 pub enum CommandResponseDataType {
     Search(SearchResult),
-    DeviceList(DeviceListResult),
     Error(String),
 }
 

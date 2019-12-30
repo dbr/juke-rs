@@ -12,8 +12,8 @@ use rouille::{router, try_or_400, websocket, Request, Response};
 use crate::client::TheList;
 use crate::commands::LockedTaskQueue;
 use crate::common::{
-    CommandResponse, CommandResponseDataType, Config, DeviceListParams, DeviceListResult,
-    PlaybackStatus, SearchParams, SearchResult, SongRequestInfo, SpotifyCommand, TaskID,
+    CommandResponse, CommandResponseDataType, Config, PlaybackStatus, SearchParams, SearchResult,
+    SongRequestInfo, SpotifyCommand, TaskID,
 };
 
 #[derive(Debug, Serialize)]
@@ -22,7 +22,6 @@ pub enum WebResponse<'a> {
     Status(PlaybackStatus),
     Search(SearchResult),
     Queue(&'a TheList),
-    DeviceList(DeviceListResult),
     Error(String),
 }
 
@@ -179,13 +178,6 @@ fn handle_response(
             //Response::json(&WebResponse::Success)
         },
 
-        (GET) (/api/downvote/{track_id:String}) => {
-            // Downvote (and possibly remove) song from queue
-            Response::text("stop it..").with_status_code(500)
-            //queue.lock().unwrap().queue(SpotifyCommand::Downvote(SongRequestInfo{track_id: track_id}));
-            //Response::json(&WebResponse::Success)
-        },
-
         (GET) (/api/request/{track_id:String}) => {
             // Add song to the list
             queue.lock().unwrap().queue(SpotifyCommand::Request(SongRequestInfo{track_id: track_id}));
@@ -195,32 +187,6 @@ fn handle_response(
         (GET) (/api/status) => {
             let s = global_status.read().unwrap().clone();
             Response::json(&WebResponse::Status(s))
-        },
-        (GET) (/api/device/list) => {
-            trace!("Request for device list");
-            let tid: TaskID = {
-                let mut q = queue.lock().unwrap();
-                let tid = q.get_task_id();
-                q.queue(SpotifyCommand::ListDevices(DeviceListParams{tid: tid}));
-                tid
-            };
-            trace!("Awaiting task");
-            let r = wait_for_task(&queue, tid);
-            trace!("Got task list");
-            let inner = match r.value {
-                CommandResponseDataType::DeviceList(d) => WebResponse::DeviceList(d),
-                _ => WebResponse::Error(format!("Unexpected response from command in /api/device/list")),
-            };
-            trace!("Responding with task list to web client");
-            Response::json(&inner)
-        },
-        (GET) (/api/device/set/{id:String}) => {
-            queue.lock().unwrap().queue(SpotifyCommand::SetActiveDevice(id));
-            Response::text("{\"result\":\"ok\"}")
-        },
-        (GET) (/api/device/clear) => {
-            queue.lock().unwrap().queue(SpotifyCommand::ClearDevice);
-            Response::text("{\"result\":\"ok\"}")
         },
         (GET) (/search/track/{term:String}) => {
             // Queue search task and drop lock
