@@ -86,6 +86,13 @@ impl Default for PlaybackStatus {
         }
     }
 }
+
+/// Summary of playlist info for syncing with web app
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PlaylistInfo {
+    pub playlist_version: u64,
+}
+
 /// Song ID to send over command-queue
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SongRequestInfo {

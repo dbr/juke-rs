@@ -19,6 +19,7 @@ use crate::common::*;
 pub struct TheList {
     pub votes: std::collections::HashMap<String, i64>,
     pub songs: std::collections::HashMap<String, BasicSongInfo>,
+    pub version: u64,
 }
 
 impl TheList {
@@ -26,6 +27,7 @@ impl TheList {
         TheList {
             votes: std::collections::HashMap::new(),
             songs: std::collections::HashMap::new(),
+            version: 0,
         }
     }
 
@@ -35,6 +37,7 @@ impl TheList {
         self.votes.entry(key.clone()).or_insert(1);
         self.songs.entry(key.clone()).or_insert(track_id);
         trace!("The list after: {:?}", self);
+        self.version += 1;
     }
 
     fn downvote(&mut self, track_id: String) {
@@ -55,6 +58,9 @@ impl TheList {
                 o.remove();
             }
         }
+
+        self.version += 1;
+
         trace!("The list after: {:?}", self);
     }
 
@@ -78,6 +84,7 @@ impl TheList {
             let (key, _votes) = o.remove_entry();
             if let Entry::Occupied(o) = self.songs.entry(key) {
                 let (_, value) = o.remove_entry();
+                self.version += 1;
                 return Some(value);
             } else {
                 return None;

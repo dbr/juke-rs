@@ -13,13 +13,14 @@ use crate::client::TheList;
 use crate::commands::LockedTaskQueue;
 use crate::common::{
     CommandResponse, CommandResponseDataType, Config, DeviceListParams, DeviceListResult,
-    PlaybackStatus, SearchParams, SearchResult, SongRequestInfo, SpotifyCommand, TaskID,
+    PlaybackStatus, PlaylistInfo, SearchParams, SearchResult, SongRequestInfo, SpotifyCommand,
+    TaskID,
 };
 
 #[derive(Debug, Serialize)]
 pub enum WebResponse<'a> {
     Success,
-    Status(PlaybackStatus),
+    Status(PlaybackStatus, PlaylistInfo),
     Search(SearchResult),
     Queue(&'a TheList),
     DeviceList(DeviceListResult),
@@ -66,8 +67,11 @@ fn websocket_handling_thread(
             websocket::Message::Text(txt) => {
                 if txt == "status" {
                     let s = global_status.read().unwrap().clone();
-
-                    let info = WebResponse::Status(s);
+                    let q = global_queue.read().unwrap();
+                    let qi = crate::common::PlaylistInfo {
+                        playlist_version: q.version,
+                    };
+                    let info = WebResponse::Status(s, qi);
 
                     let t = serde_json::to_string(&info).unwrap();
                     websocket.send_text(&t).unwrap();
@@ -194,7 +198,11 @@ fn handle_response(
 
         (GET) (/api/status) => {
             let s = global_status.read().unwrap().clone();
-            Response::json(&WebResponse::Status(s))
+            let q = global_queue.read().unwrap();
+            let qi = crate::common::PlaylistInfo {
+                playlist_version: q.version,
+            };
+            Response::json(&WebResponse::Status(s, qi))
         },
         (GET) (/api/device/list) => {
             trace!("Request for device list");

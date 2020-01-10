@@ -368,6 +368,7 @@ class MainView extends React.Component {
             status: undefined,
             queue: undefined,
             is_searching: false,
+            playlist_info: undefined,
         };
     }
     componentDidMount() {
@@ -409,7 +410,6 @@ class MainView extends React.Component {
     }
     refresh() {
         this.state.socket.send('status');
-        this.state.socket.send('queue'); // FIXME: Do this less often
     }
     disconnected() {
         console.log("Clearing connection!");
@@ -418,7 +418,17 @@ class MainView extends React.Component {
     }
     update(data) {
         if ("Status" in data) {
-            this.setState({ status: data.Status });
+            var new_status = data.Status[0];
+            this.setState({ status: new_status });
+
+            var new_playlist_info = data.Status[1];
+            if(this.state.queue_info === undefined
+                || this.state.queue_info.playlist_version === 0
+                || this.state.queue_info.playlist_version != new_playlist_info.playlist_version){
+                    console.log("Requesting updated queue", this.state.queue_info, new_playlist_info);
+                this.state.socket.send('queue');
+            }
+            this.setState({ queue_info: new_playlist_info });
         } else if ("Queue" in data) {
             this.setState({ queue: data.Queue });
         } else {
