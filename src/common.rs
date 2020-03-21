@@ -131,9 +131,7 @@ pub struct DeviceListResult {
 pub enum SpotifyCommand {
     Resume,
     Pause,
-    Skip,
     Request(SongRequestInfo),
-    Downvote(SongRequestInfo),
     Search(SearchParams),
     SetAuthToken(TokenInfo),
     ClearAuth,

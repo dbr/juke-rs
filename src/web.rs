@@ -27,12 +27,6 @@ pub enum WebResponse<'a> {
     Error(String),
 }
 
-#[derive(Debug, Serialize)]
-enum MaybeWebResponse<'a> {
-    Error(String),
-    Response(WebResponse<'a>),
-}
-
 /// Wait for given task ID
 fn wait_for_task(queue: &LockedTaskQueue, tid: TaskID) -> CommandResponse {
     let duration_ms = 15_000;
@@ -175,19 +169,6 @@ fn handle_response(
             // Pause
             queue.lock().unwrap().queue(SpotifyCommand::Pause);
             Response::json(&WebResponse::Success)
-        },
-        (GET) (/api/skip) => {
-            // Skip song
-            Response::text("stop it..").with_status_code(500)
-            //queue.lock().unwrap().queue(SpotifyCommand::Skip);
-            //Response::json(&WebResponse::Success)
-        },
-
-        (GET) (/api/downvote/{track_id:String}) => {
-            // Downvote (and possibly remove) song from queue
-            Response::text("stop it..").with_status_code(500)
-            //queue.lock().unwrap().queue(SpotifyCommand::Downvote(SongRequestInfo{track_id: track_id}));
-            //Response::json(&WebResponse::Success)
         },
 
         (GET) (/api/request/{track_id:String}) => {

@@ -17,7 +17,6 @@ use crate::common::*;
 /// Handles the requested song queue, with weighting etc
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TheList {
-    pub votes: std::collections::HashMap<String, i64>,
     pub songs: std::collections::HashMap<String, BasicSongInfo>,
     pub version: u64,
 }
@@ -25,7 +24,6 @@ pub struct TheList {
 impl TheList {
     pub fn new() -> TheList {
         TheList {
-            votes: std::collections::HashMap::new(),
             songs: std::collections::HashMap::new(),
             version: 0,
         }
@@ -34,64 +32,27 @@ impl TheList {
     fn add(&mut self, track_id: BasicSongInfo) {
         debug!("Added song {:?}", track_id);
         let key = &track_id.spotify_uri;
-        self.votes.entry(key.clone()).or_insert(1);
         self.songs.entry(key.clone()).or_insert(track_id);
         trace!("The list after: {:?}", self);
         self.version += 1;
     }
 
-    fn downvote(&mut self, track_id: String) {
-        debug!("Downvoting song with ID {}", &track_id);
-        self.votes.entry(track_id.clone()).and_modify(|e| *e -= 1);
-        if let Some(c) = self.votes.get(&track_id) {
-            if *c < -1 {
-                debug!(
-                    "Going to remove song from list because it now has {} votes",
-                    c
-                );
-                self.votes.remove(&track_id);
-                self.songs.remove(&track_id);
-            }
-        }
-        if let Entry::Occupied(o) = self.votes.entry(track_id.clone()) {
-            if *o.get() < -1 {
-                o.remove();
-            }
-        }
-
-        self.version += 1;
-
-        trace!("The list after: {:?}", self);
-    }
-
     fn nextup(&mut self) -> Option<BasicSongInfo> {
-        // TODO: This method can probably be simplified
-        let highest_vote_value = {
-            let mut sorted: Vec<(&String, &i64)> = self.votes.iter().collect();
-            sorted.sort_by(|a, b| b.1.cmp(a.1));
-            sorted.first()?.1
-        };
-
-        let hm = {
-            let highest_voted = { self.votes.iter().filter(|k| k.1 == highest_vote_value) };
+        let chosen_key = {
             let mut rng = rand::thread_rng();
-            let keys: Vec<&String> = highest_voted.map(|x| x.0).collect();
+            let keys: Vec<&String> = self.songs.keys().collect();
             let hm = keys.choose(&mut rng)?;
             hm.clone()
-        };
+        }
+        .clone();
 
-        if let Entry::Occupied(o) = self.votes.entry(hm.to_string()) {
-            let (key, _votes) = o.remove_entry();
-            if let Entry::Occupied(o) = self.songs.entry(key) {
-                let (_, value) = o.remove_entry();
-                self.version += 1;
-                return Some(value);
-            } else {
-                return None;
-            }
+        if let Entry::Occupied(o) = self.songs.entry(chosen_key) {
+            let (_, value) = o.remove_entry();
+            self.version += 1;
+            return Some(value);
         } else {
             return None;
-        };
+        }
     }
 }
 
@@ -261,28 +222,6 @@ impl Client {
         Ok(())
     }
 
-    /// Pause playback
-    pub fn skip(&mut self) -> ClientResult<()> {
-        info!("Track skip requested");
-        self.skip_votes += 1;
-
-        if self.skip_votes >= 2 {
-            trace!("Skip vote success");
-            if self.enqueue()? {
-                // Loaded next song
-                Ok(())
-            } else {
-                // No song in queue, just skip currently playing one in Spotify client
-                let id = self.device.clone().and_then(|x| Some(x.id));
-                self.get_spotify()?.next_track(id)?;
-                Ok(())
-            }
-        } else {
-            trace!("Not enough skip votes yet, {}", self.skip_votes);
-            Ok(())
-        }
-    }
-
     pub fn search(&self, params: &SearchParams, queue: &mut TaskQueue) -> ClientResult<()> {
         debug!("Searching for {:?}", params);
         let start = Instant::now();
@@ -331,17 +270,12 @@ impl Client {
         let c = self.get_spotify()?;
         let track = c.track(&track_id)?;
         let x: BasicSongInfo = track.into();
-        if x.title.to_lowercase().contains("scatman") || x.title.to_lowercase().contains("freestyler") {
+        if x.title.to_lowercase().contains("scatman")
+            || x.title.to_lowercase().contains("freestyler")
+        {
             return Ok(());
         }
         self.the_list.add(x);
-        Ok(())
-    }
-
-    /// Reverse a request for song, possibly removing it from the queue
-    pub fn downvote(&mut self, track_id: String) -> ClientResult<()> {
-        debug!("Downvoted song {}", track_id);
-        self.the_list.downvote(track_id);
         Ok(())
     }
 
