@@ -110,7 +110,7 @@ class PlaybackStatus extends React.Component {
                 <div className="card-body">
                     <h5 className="card-title">{this.props.status.song.title}</h5>
                     <p className="card-text">{this.props.status.song.artist}</p>
-                    <p><small> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
+                    <p><small style={{color: "grey"}}> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
                 </div>
             </div>
         );
