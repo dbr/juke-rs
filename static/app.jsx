@@ -78,18 +78,7 @@ class ButtonDebounce extends React.Component {
 }
 
 class PlaybackStatus extends React.Component {
-    resume() {
-        fetch("/api/resume");
-    }
-    pause() {
-        fetch("/api/pause");
-    }
-    skip() {
-        fetch("/api/skip");
-    }
     render() {
-        var skip_button = <ButtonDebounce className="btn btn-danger" callback={this.skip} content="Skip!"></ButtonDebounce>;
-
         if (this.props.status === undefined || this.props.status.song === null || this.props.status.progress_ms === null
             || this.props.status.state == 'NeedsSong') {
             return (
@@ -98,11 +87,6 @@ class PlaybackStatus extends React.Component {
                 <div className="progress">
                     <div className="progress-bar progress-bar-striped" role="progressbar" style={{ width: "100%" }} aria-valuenow={100} aria-valuemin="0" aria-valuemax="100">
                     </div>
-                </div>
-                <div className="card-body">
-                    <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
-                    <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
-                    {skip_button}
                 </div>
             </div>
             );
@@ -124,9 +108,6 @@ class PlaybackStatus extends React.Component {
                     </div>
                 </div>
                 <div className="card-body">
-                    <button className={"btn " + (paused ? "btn-primary" : "btn-secondary")} onClick={this.resume}>&gt;</button>
-                    <button className={"btn " + (!paused ? "btn-primary" : "btn-secondary")} onClick={this.pause}>||</button>
-                    {skip_button}
                     <h5 className="card-title">{this.props.status.song.title}</h5>
                     <p className="card-text">{this.props.status.song.artist}</p>
                     <p><small> ({this.props.status.state}) {time_current} / {time_duration}</small></p>
@@ -137,15 +118,6 @@ class PlaybackStatus extends React.Component {
 }
 
 class UpcomingListItem extends React.Component {
-    downvote() {
-        console.log("Downvoting", this.props.song);
-        var u = "/api/downvote/" + encodeURIComponent(this.props.song.spotify_uri);
-        fetch(u).then(function (resp) {
-            return resp.json(); // FIXME: Handle error
-        }.bind(this)).then(function (d) {
-            console.log(d);
-        }.bind(this));
-    }
     render() {
         return (
             <li className="list-group-item">

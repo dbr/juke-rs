@@ -38,8 +38,6 @@ fn spotify_ctrl(
             if let Some(c) = queue_content {
                 trace!("Got command: {:?}", c);
                 match c {
-                    SpotifyCommand::Pause => client.pause()?,
-                    SpotifyCommand::Resume => client.resume()?,
                     SpotifyCommand::Request(ri) => client.request(ri.track_id)?,
                     SpotifyCommand::Search(sp) => client.search(&sp, &mut queue.lock().unwrap())?,
                     SpotifyCommand::SetAuthToken(t) => client.set_auth_token(&t),

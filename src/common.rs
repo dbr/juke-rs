@@ -129,8 +129,6 @@ pub struct DeviceListResult {
 /// Things web-server can ask Spotify thread to do
 #[derive(Debug)]
 pub enum SpotifyCommand {
-    Resume,
-    Pause,
     Request(SongRequestInfo),
     Search(SearchParams),
     SetAuthToken(TokenInfo),

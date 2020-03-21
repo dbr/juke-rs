@@ -160,16 +160,6 @@ fn handle_response(
             });
             response
         },
-        (GET) (/api/resume) => {
-            // Play
-            queue.lock().unwrap().queue(SpotifyCommand::Resume);
-            Response::json(&WebResponse::Success)
-        },
-        (GET) (/api/pause) => {
-            // Pause
-            queue.lock().unwrap().queue(SpotifyCommand::Pause);
-            Response::json(&WebResponse::Success)
-        },
 
         (GET) (/api/request/{track_id:String}) => {
             // Add song to the list
